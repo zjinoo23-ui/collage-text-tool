@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#ffffff">
+  <title>拼贴文字 · Collage Text</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <h1 class="app-title">拼贴文字</h1>
+      <span class="app-subtitle">COLLAGE TEXT</span>
+    </header>
+
+    <!-- Main content -->
+    <main class="app-main">
+      <!-- Preview area -->
+      <section class="preview-section">
+        <div class="preview-wrapper">
+          <canvas id="previewCanvas"></canvas>
+        </div>
+      </section>
+
+      <!-- Controls -->
+      <section class="controls-section">
+        <!-- Text input -->
+        <div class="control-group">
+          <label class="control-label" for="textInput">输入文字</label>
+          <textarea id="textInput" class="text-input" rows="3" placeholder="输入文字，生成拼贴…">你好，Hello World！</textarea>
+        </div>
+
+        <!-- Segment mode -->
+        <div class="control-group">
+          <label class="control-label">成片单位</label>
+          <div class="segmented-control" id="segmentMode">
+            <button class="seg-btn" data-value="char">逐字</button>
+            <button class="seg-btn active" data-value="mixed">混合</button>
+          </div>
+        </div>
+
+        <!-- Alignment -->
+        <div class="control-group">
+          <label class="control-label">对齐方式</label>
+          <div class="segmented-control" id="alignMode">
+            <button class="seg-btn active" data-value="left">左对齐</button>
+            <button class="seg-btn" data-value="center">居中</button>
+            <button class="seg-btn" data-value="right">右对齐</button>
+          </div>
+        </div>
+
+        <!-- Global scale -->
+        <div class="control-group">
+          <label class="control-label" for="scaleSlider">
+            字号缩放 <span id="scaleValue" class="value-label">100%</span>
+          </label>
+          <input type="range" id="scaleSlider" class="slider" min="50" max="200" value="100" step="5">
+        </div>
+
+        <!-- Randomness -->
+        <div class="control-group">
+          <label class="control-label" for="randomSlider">
+            随机幅度 <span id="randomValue" class="value-label">60%</span>
+          </label>
+          <input type="range" id="randomSlider" class="slider" min="0" max="100" value="60" step="1">
+        </div>
+
+        <!-- Toggles -->
+        <div class="control-group toggle-group">
+          <label class="toggle-label">
+            <input type="checkbox" id="toggleSize" checked>
+            <span class="toggle-track"></span>
+            字号随机
+          </label>
+        </div>
+
+        <!-- Size & Background -->
+        <div class="control-row">
+          <div class="control-group half">
+            <label class="control-label" for="sizeSelect">尺寸</label>
+            <select id="sizeSelect" class="select">
+              <option value="square">正方形 1:1</option>
+              <option value="portrait" selected>3:4 竖版</option>
+              <option value="wallpaper">手机壁纸</option>
+            </select>
+          </div>
+          <div class="control-group half">
+            <label class="control-label" for="bgSelect">背景</label>
+            <select id="bgSelect" class="select">
+              <option value="white" selected>白纸</option>
+              <option value="notebook">笔记本纸</option>
+              <option value="dotgrid">点线纸</option>
+              <option value="kraft">牛皮纸</option>
+              <option value="transparent">透明 PNG</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Seed -->
+        <div class="control-group">
+          <label class="control-label" for="seedInput">
+            种子号
+          </label>
+          <div class="seed-row">
+            <input type="number" id="seedInput" class="seed-input" value="42">
+            <button id="regenBtn" class="btn btn-secondary">换种子</button>
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="action-row">
+          <button id="downloadBtn" class="btn btn-primary">下载图片</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Full-res canvas for export (hidden) -->
+  <canvas id="exportCanvas" style="display:none;"></canvas>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
