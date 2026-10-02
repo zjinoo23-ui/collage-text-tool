@@ -61,6 +61,21 @@ export function renderToCanvas(params, canvas) {
     const offY = -el.paper.bounds.h / 2;
     ctx.translate(offX, offY);
 
+    // Draw paper drop shadow (贴纸投影) — drawn under the paper fill
+    const shadowFs = el.fontSize || 40;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
+    ctx.shadowBlur = Math.max(3, shadowFs * 0.15);
+    ctx.shadowOffsetX = Math.max(1, shadowFs * 0.02);
+    ctx.shadowOffsetY = Math.max(1, shadowFs * 0.04);
+    ctx.fillStyle = '#000';
+    if (el.paper.mask) {
+      ctx.drawImage(el.paper.mask, 0, 0);
+    } else {
+      ctx.fill(el.paper.path);
+    }
+    ctx.restore();
+
     // Draw paper fill — use seamless tiled texture if assets loaded, else solid color
     const texImg = assetsReady() ? getTextureImages()[el.textureIdx] : null;
     const bw = el.paper.bounds.w;
