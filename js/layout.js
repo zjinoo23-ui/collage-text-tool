@@ -2,7 +2,7 @@
 
 import { createPositionRng } from './rng.js';
 import { getFontCss, getFontCount } from './fonts.js';
-import { analyzeGlyph, classifyShape, pickTearStyle, generatePaper } from './paper.js';
+import { analyzeGlyph, classifyShape, pickTearStyle, generatePaper, measureRealBounds } from './paper.js';
 import { TEXTURES } from './assets.js';
 
 // Chinese punctuation that should NOT appear at line start
@@ -70,46 +70,28 @@ function computeLayoutWithFontSize(p) {
     if (toggles.size) fontSize = baseFontSize * posRng.range(0.85, 1.15);
     const fontCss = getFontCss(fontIdx, fontSize);
     ctx.font = fontCss;
-    const metrics = ctx.measureText(unit.text);
 
-    // Layer 1: analyze glyph → classify shape (uses actual pixel bounds)
+    // Layer 1: analyze glyph at 100px ONLY for shape features (theta/tilt)
     const glyph = analyzeGlyph(unit.text, fontCss);
     const shapeType = classifyShape(glyph, posRng, unit.isPunct);
 
-    // Paper sizing
-    const glyphScale = fontSize / 100;
-    let textW, textH;
-    if (unit.isPunct) {
-      // Punctuation: use actual glyph pixel bounds only — metrics.width (advance)
-      // and fontSize floors are irrelevant to punctuation's real visual size
-      textW = glyph.w * glyphScale;
-      textH = glyph.h * glyphScale;
-    } else {
-      // Regular chars: use glyph bounds, floored by text metrics to avoid overflow
-      textW = Math.max(glyph.w * glyphScale, metrics.width);
-      textH = Math.max(glyph.h * glyphScale, fontSize * 1.0);
-    }
-    // For punctuation: always use ox/oy (glyph position within em-box matters)
-    // For regular chars: skip ox/oy only for very tiny glyphs (unreliable)
-    const useOffset = unit.isPunct || glyph.h >= 40;
-    const glyphOx = useOffset ? glyph.ox * glyphScale : 0;
-    const glyphOy = useOffset ? glyph.oy * glyphScale : 0;
+    // Unified measurement: measure ALL chars at actual fontSize
+    // This gives consistent w/h/ox/oy matching the renderer exactly
+    const real = measureRealBounds(unit.text, fontCss, fontSize);
+    const textW = real.w;
+    const textH = real.h;
+    const glyphOx = real.ox;
+    const glyphOy = real.oy;
 
     // Layer 2: pick tear style (seed-driven, weakly correlated with shape)
     const tearKey = pickTearStyle(posRng, shapeType);
 
     // Generate paper (shape + tear; texture is Layer 3, handled in renderer)
     const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, posRng, unit.isPunct, unit.text, fontCss, fontSize);
-    // For punctuation, use the REAL measured offset from generatePaper (not analyzeGlyph)
-    let effGlyphOx = glyphOx, effGlyphOy = glyphOy;
-    if (unit.isPunct && paper.realGlyphOffset) {
-      effGlyphOx = paper.realGlyphOffset.x;
-      effGlyphOy = paper.realGlyphOffset.y;
-    }
 
     const fillColor = toggles.color ? colorScheme.getFill(posRng) : colorScheme.palette.fills[0];
     const strokeColor = toggles.color ? colorScheme.getStroke(posRng) : colorScheme.palette.strokes[0];
-    return { unit, posRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, strokeColor, layoutW: paper.bounds.w, index: i, glyphOx: effGlyphOx, glyphOy: effGlyphOy };
+    return { unit, posRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, strokeColor, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy };
   });
 
   // Pass 2: Line wrapping

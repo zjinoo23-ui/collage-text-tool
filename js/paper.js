@@ -295,43 +295,6 @@ function applyTear(corners, tearKey, rng, charSize) {
  * @returns {object} { path, bounds:{w,h}, type }
  */
 export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, rng, isPunct = false, text = '', fontCss = '', fontSize = 0) {
-  // ── Punctuation: measure ACTUAL rendered bounds at real fontSize ──
-  // analyzeGlyph (100px) is unreliable for thin/small punctuation strokes
-  if (isPunct && text && fontCss && fontSize > 0) {
-    const meas = measureRealBounds(text, fontCss, fontSize);
-    const realW = meas.w;
-    const realH = meas.h;
-    const padX = Math.max(realW * 0.5, fontSize * 0.2);
-    const padY = Math.max(realH * 0.5, fontSize * 0.2);
-    const baseW = realW + padX * 2;
-    const baseH = realH + padY * 2;
-    const corners = buildCorners('rect', baseW, baseH, { theta: 0 }, rng);
-    const minX = Math.min(...corners.map(c => c.x));
-    const minY = Math.min(...corners.map(c => c.y));
-    const maxX = Math.max(...corners.map(c => c.x));
-    const maxY = Math.max(...corners.map(c => c.y));
-    const normCorners = corners.map(c => ({ x: c.x - minX, y: c.y - minY }));
-    const boundsW = maxX - minX;
-    const boundsH = maxY - minY;
-    const cx = normCorners.reduce((s, c) => s + c.x, 0) / normCorners.length;
-    const cy = normCorners.reduce((s, c) => s + c.y, 0) / normCorners.length;
-    const charSize = Math.min(boundsW, boundsH);
-    const path = applyTear(normCorners, tearKey, rng, charSize);
-    // Text should be drawn at the glyph's real position within the paper
-    // meas.ox/oy is offset from canvas center to glyph pixel center
-    const textOffsetX = (boundsW - realW) / 2 + meas.ox;
-    const textOffsetY = (boundsH - realH) / 2 + meas.oy;
-    return {
-      path, mask: null,
-      bounds: { w: boundsW, h: boundsH },
-      center: { x: cx, y: cy },
-      type: 'rect', tear: tearKey,
-      textOffset: { x: textOffsetX, y: textOffsetY },
-      realGlyphOffset: { x: meas.ox, y: meas.oy },
-      realGlyphSize: { w: realW, h: realH },
-    };
-  }
-
   // ── glyphCutout: paper hugs the glyph outline with thick padding ──
   if (shapeType === 'glyphCutout' && text && fontCss) {
     const pad = fontSize * TH.glyphCutoutPad;

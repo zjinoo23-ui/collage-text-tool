@@ -111,10 +111,11 @@ export function renderToCanvas(params, canvas) {
     const baseX = el.paper.center ? el.paper.center.x : el.paper.bounds.w / 2;
     const baseY = el.paper.center ? el.paper.center.y : el.paper.bounds.h / 2;
     const isGlyphCutout = el.paper.type === 'glyphCutout';
-    // Punctuation: element position already includes ox/oy, draw at paper center
-    const skipOffset = isGlyphCutout || el.isPunct;
-    const textX = baseX - (skipOffset ? 0 : (el.glyphOx || 0));
-    const textY = baseY - (skipOffset ? 0 : (el.glyphOy || 0));
+    // Only glyphCutout skips offset (text pre-centered in mask).
+    // All others (including punctuation) subtract ox/oy to center glyph in paper.
+    // Punctuation's natural position comes from the element position offset in layout.js.
+    const textX = baseX - (isGlyphCutout ? 0 : (el.glyphOx || 0));
+    const textY = baseY - (isGlyphCutout ? 0 : (el.glyphOy || 0));
 
     // Layer 2: text stroke outline (only if strokeW > 0, random per element)
     if (el.strokeW > 0) {
