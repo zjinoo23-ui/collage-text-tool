@@ -90,8 +90,9 @@ function computeLayoutWithFontSize(p) {
     const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, posRng, unit.isPunct, unit.text, fontCss, fontSize);
 
     const fillColor = toggles.color ? colorScheme.getFill(posRng) : colorScheme.palette.fills[0];
-    const strokeColor = toggles.color ? colorScheme.getStroke(posRng) : colorScheme.palette.strokes[0];
-    return { unit, posRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, strokeColor, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy };
+    const textColor = toggles.color ? colorScheme.getText(posRng) : colorScheme.palette.textColors[0];
+    const strokeColor = toggles.color ? colorScheme.getStroke(posRng) : colorScheme.palette.strokeColors[0];
+    return { unit, posRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy };
   });
 
   // Pass 2: Line wrapping
@@ -159,7 +160,7 @@ function computeLayoutWithFontSize(p) {
       elements.push({
         text: item.unit.text, fontCss: item.fontCss, fontSize: item.fontSize,
         textW: item.textW, textH: item.textH, paper: item.paper,
-        fillColor: item.fillColor, strokeColor: item.strokeColor,
+        fillColor: item.fillColor, textColor: item.textColor, strokeColor: item.strokeColor,
         x: x + item.layoutW / 2 + posOX, y: yPos + floatY + posOY,
         rotation, index: item.index, strokeW, isPunct,
         textureIdx: posRng.int(0, TEXTURES.length - 1),

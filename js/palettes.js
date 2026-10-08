@@ -1,42 +1,76 @@
 // palettes.js - Color palette management system
+// 每套配色方案 3 组颜色：纸片底色(fills)、文字颜色(textColors)、描边颜色(strokeColors)
 
-// Built-in palettes (can be extended by adding JSON files to assets/palettes/)
 const PALETTES = [
   {
     id: 'vintage-cream',
     name: '复古奶油',
     fills: ['#FFF8E7', '#F5E6C8', '#E8D5B0', '#D4C4A8', '#F0DFC0'],
-    strokes: ['#8B7355', '#6B5344']
+    textColors: ['#8B7355', '#6B5344', '#5A4A3A'],
+    strokeColors: ['#4A3F35', '#3A2F25']
   },
   {
     id: 'morandi-pink',
     name: '莫兰迪灰粉',
     fills: ['#F5E6E0', '#E8D5D0', '#DCC8C4', '#F0E0DC', '#E5D0CC'],
-    strokes: ['#7A6B68', '#5C4F4C']
+    textColors: ['#7A5F5C', '#5C4F4C', '#684A4A'],
+    strokeColors: ['#443838', '#332D2D']
   },
   {
-    id: 'kraft-brown',
-    name: '牛皮纸暖褐',
-    fills: ['#E8D8C0', '#DCC8A8', '#D0BC90', '#E0D0B8', '#C8B898'],
-    strokes: ['#6B5D4F', '#4A3F35']
+    id: 'fresh-mint',
+    name: '清新薄荷',
+    fills: ['#EAF7F0', '#D8EFE5', '#C5E4D7', '#E0F2E8', '#BBDACD'],
+    textColors: ['#39705C', '#285746', '#32664F'],
+    strokeColors: ['#204438', '#17352C']
   },
   {
-    id: 'cinnabar-blue',
-    name: '朱砂红配墨蓝',
-    fills: ['#F5E6E0', '#E8D0C8', '#F0D8D0', '#DCC0B8', '#E5CCC4'],
-    strokes: ['#2C3E6B', '#8B2C2C']
+    id: 'cream-lemon',
+    name: '奶油柠檬',
+    fills: ['#FFFBE6', '#F8F1C8', '#EFE5A8', '#F5EBC5', '#E5D99A'],
+    textColors: ['#85752E', '#66591F', '#584D22'],
+    strokeColors: ['#403916', '#302C12']
   },
   {
-    id: 'low-sat-candy',
-    name: '低饱和糖果',
-    fills: ['#F0E8F5', '#E0E8F0', '#F5E8E0', '#E8F0E0', '#F0F0E0'],
-    strokes: ['#6B6B8B', '#5C5C5C']
+    id: 'vintage-brick',
+    name: '复古砖红',
+    fills: ['#F8E8DF', '#EFD5CA', '#E5C1B5', '#F2DDD4', '#DDB8AC'],
+    textColors: ['#984F45', '#773D37', '#63332F'],
+    strokeColors: ['#4A2926', '#35201E']
   },
   {
-    id: 'mono-mono',
-    name: '黑白灰极简',
-    fills: ['#F5F5F5', '#E8E8E8', '#F0F0F0', '#E0E0E0', '#FAFAFA'],
-    strokes: ['#333333', '#1A1A1A']
+    id: 'haze-blue-gray',
+    name: '雾霾蓝灰',
+    fills: ['#E8F0F3', '#D5E3E8', '#C3D5DC', '#DEE9ED', '#B8CDD5'],
+    textColors: ['#496875', '#385460', '#304852'],
+    strokeColors: ['#263B43', '#1D2D33']
+  },
+  {
+    id: 'milk-caramel',
+    name: '奶茶焦糖',
+    fills: ['#F7EBDD', '#EED9C5', '#E3C6A9', '#F1DDCA', '#D9B996'],
+    textColors: ['#916A4C', '#704D36', '#5D402F'],
+    strokeColors: ['#432E24', '#33231D']
+  },
+  {
+    id: 'lavender',
+    name: '薰衣草紫',
+    fills: ['#F1ECF7', '#E4DCEE', '#D8CEE5', '#EBE3F1', '#CBBFD9'],
+    textColors: ['#716080', '#594A68', '#4C3F59'],
+    strokeColors: ['#382E42', '#29232F']
+  },
+  {
+    id: 'cool-black-silver',
+    name: '酷黑银灰',
+    fills: ['#F2F2F0', '#DFE0DE', '#CECFCC', '#E8E8E5', '#BFC1BE'],
+    textColors: ['#454745', '#303332', '#252827'],
+    strokeColors: ['#171918', '#0B0C0C']
+  },
+  {
+    id: 'vintage-olive',
+    name: '复古橄榄绿',
+    fills: ['#F0F1DF', '#E2E5C8', '#D2D8B2', '#E8EACF', '#C2CAA0'],
+    textColors: ['#687044', '#4F5935', '#41492E'],
+    strokeColors: ['#303621', '#222719']
   }
 ];
 
@@ -54,23 +88,10 @@ export function getPaletteById(id) {
  * Pick a palette and assign colors using rng.
  * @param {object} rng - RNG instance
  * @param {number} driftAmount - 0-1, amount of color drift
- * @returns {object} { palette, getFill(position), getStroke(position) }
+ * @returns {object} { palette, getFill, getText, getStroke }
  */
 export function createColorScheme(rng, driftAmount = 0) {
   const palette = rng.pick(PALETTES);
-
-  function driftColor(hex) {
-    if (driftAmount <= 0) return hex;
-    const { h, s, l } = hexToHsl(hex);
-    const hShift = rng.range(-15 * driftAmount, 15 * driftAmount);
-    const sShift = rng.range(-10 * driftAmount, 10 * driftAmount);
-    const lShift = rng.range(-8 * driftAmount, 8 * driftAmount);
-    return hslToHex(
-      Math.max(0, Math.min(360, h + hShift)),
-      Math.max(0, Math.min(100, s + sShift)),
-      Math.max(0, Math.min(100, l + lShift))
-    );
-  }
 
   return {
     palette,
@@ -78,13 +99,12 @@ export function createColorScheme(rng, driftAmount = 0) {
       const base = positionRng.pick(palette.fills);
       return driftAmount > 0 ? driftColorWithRng(base, positionRng, driftAmount) : base;
     },
+    getText(positionRng) {
+      const base = positionRng.pick(palette.textColors);
+      return driftAmount > 0 ? driftColorWithRng(base, positionRng, driftAmount) : base;
+    },
     getStroke(positionRng) {
-      // 90% chance: use fixed anchor stroke; 10% chance: pick any fill color as "撞色"
-      if (positionRng.chance(0.1)) {
-        const base = positionRng.pick(palette.fills);
-        return driftAmount > 0 ? driftColorWithRng(base, positionRng, driftAmount) : base;
-      }
-      return positionRng.pick(palette.strokes);
+      return positionRng.pick(palette.strokeColors);
     }
   };
 }
