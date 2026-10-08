@@ -1,9 +1,41 @@
 // backgrounds.js - Background texture generation
+// 支持图片背景：把 PNG 放到 assets/backgrounds/ 下，命名与类型对应。
+// 有图片就用图片（cover 模式铺满+裁切），没有就回退到代码绘制。
 
 const BG_TYPES = ['white', 'notebook', 'dotgrid', 'kraft', 'transparent'];
 
+// 背景图配置：type → 图片路径（transparent 不需要图片）
+const BG_IMAGE_CONFIG = {
+  white:     'assets/backgrounds/white.png',
+  notebook:  'assets/backgrounds/notebook.png',
+  dotgrid:   'assets/backgrounds/dotgrid.png',
+  kraft:     'assets/backgrounds/kraft.png',
+};
+
+// 已加载的背景图缓存：type → HTMLImageElement | null
+const bgImageCache = {};
+
 export function getBgTypes() {
   return BG_TYPES;
+}
+
+/**
+ * 预加载所有背景图。加载失败的类型回退到代码绘制。
+ * 返回 Promise，resolve 后所有图片状态确定。
+ */
+export function preloadBackgrounds() {
+  const entries = Object.entries(BG_IMAGE_CONFIG);
+  return Promise.all(entries.map(([type, path]) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => { bgImageCache[type] = img; resolve(); };
+      img.onerror = () => { bgImageCache[type] = null; resolve(); };
+      img.src = path;
+    });
+  })).then(() => {
+    const loaded = Object.values(bgImageCache).filter(Boolean).length;
+    console.log(`[backgrounds] loaded ${loaded}/${entries.length} background images`);
+  });
 }
 
 // Deterministic pseudo-random for reproducible noise (seed-based)
@@ -24,6 +56,15 @@ function hash2(x, y, seed) {
 export function drawBackground(ctx, width, height, type, seed = 0) {
   ctx.save();
 
+  // 优先用图片背景（cover 模式：保持比例缩放铺满 + 居中裁切）
+  const bgImg = bgImageCache[type];
+  if (bgImg) {
+    drawImageCover(ctx, bgImg, 0, 0, width, height);
+    ctx.restore();
+    return;
+  }
+
+  // 没有图片，回退到代码绘制
   switch (type) {
     case 'white':
       ctx.fillStyle = '#fefefe';
@@ -92,4 +133,20 @@ function drawNoise(ctx, width, height, density, color, seed) {
     ctx.fillRect(x, y, size, size);
   }
   ctx.globalAlpha = 1;
+}
+
+/**
+ * cover 模式绘制图片：保持比例缩放铺满目标区域，居中裁掉多余部分。
+ * 类似 CSS background-size: cover。
+ */
+function drawImageCover(ctx, img, x, y, w, h) {
+  const imgW = img.naturalWidth || img.width;
+  const imgH = img.naturalHeight || img.height;
+  if (!imgW || !imgH) return;
+  const scale = Math.max(w / imgW, h / imgH);
+  const dw = imgW * scale;
+  const dh = imgH * scale;
+  const dx = x + (w - dw) / 2;
+  const dy = y + (h - dh) / 2;
+  ctx.drawImage(img, dx, dy, dw, dh);
 }

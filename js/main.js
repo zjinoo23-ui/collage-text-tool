@@ -6,6 +6,7 @@ import { renderToCanvas } from './renderer.js';
 import { downloadCanvas } from './export.js';
 import { SIZES } from './layout.js';
 import { preloadAssets } from './assets.js';
+import { preloadBackgrounds } from './backgrounds.js';
 
 // DOM elements
 const textInput = document.getElementById('textInput');
@@ -180,4 +181,5 @@ window.addEventListener('resize', () => {
 // Init — render immediately, then re-render when fonts/assets ready
 render();
 preloadAssets().then(() => render());
+preloadBackgrounds().then(() => render());
 waitForFonts().then(() => render());
