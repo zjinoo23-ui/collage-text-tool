@@ -1,9 +1,10 @@
 // layout.js - Layout engine: line wrapping, alignment, positioning
 
-import { createPositionRng } from './rng.js';
+import { createPositionRng, createRng } from './rng.js';
 import { getFontCss, getFontCount } from './fonts.js';
 import { analyzeGlyph, classifyShape, pickTearStyle, generatePaper, measureRealBounds } from './paper.js';
 import { TEXTURES } from './assets.js';
+import { createColorScheme } from './palettes.js';
 
 // Chinese punctuation that should NOT appear at line start
 const NO_START_PUNCT = /^[，。、；：！？""''）》】』」…—]$/;
@@ -89,9 +90,14 @@ function computeLayoutWithFontSize(p) {
     // Generate paper (shape + tear; texture is Layer 3, handled in renderer)
     const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, posRng, unit.isPunct, unit.text, fontCss, fontSize);
 
-    const fillColor = toggles.color ? colorScheme.getFill(posRng) : colorScheme.palette.fills[0];
-    const textColor = toggles.color ? colorScheme.getText(posRng) : colorScheme.palette.textColors[0];
-    const strokeColor = toggles.color ? colorScheme.getStroke(posRng) : colorScheme.palette.strokeColors[0];
+    // 每个字独立选一套配色方案（用 seed + index 派生 RNG）
+    const drift = (randomAmount / 100) * 0.5;
+    const charColorScheme = toggles.color
+      ? createColorScheme(createRng(seed + i * 997), drift)
+      : colorScheme;
+    const fillColor = charColorScheme.getFill(posRng);
+    const textColor = charColorScheme.getText(posRng);
+    const strokeColor = charColorScheme.getStroke(posRng);
     return { unit, posRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy };
   });
 
