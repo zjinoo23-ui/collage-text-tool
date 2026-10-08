@@ -132,18 +132,17 @@ export function renderToCanvas(params, canvas) {
     const textX = baseX - (isGlyphCutout ? 0 : (el.glyphOx || 0));
     const textY = baseY - (isGlyphCutout ? 0 : (el.glyphOy || 0));
 
-    // Layer 2: text stroke outline (only if strokeW > 0, random per element)
+    // Layer 2: text stroke outline (only if strokeW > 0, uses palette stroke color)
     if (el.strokeW > 0) {
-      const TEST_STROKE_COLORS = ['#ff0000','#0066ff','#00aa44','#ff6600','#cc00cc','#00cccc','#ff0066','#996600'];
-      ctx.strokeStyle = TEST_STROKE_COLORS[el.index % TEST_STROKE_COLORS.length];
+      ctx.strokeStyle = el.strokeColor;
       ctx.lineWidth = el.strokeW;
       ctx.lineJoin = 'round';
       ctx.miterLimit = 2;
       ctx.strokeText(el.text, textX, textY);
     }
 
-    // Layer 3: text fill on top (same position)
-    ctx.fillStyle = el.strokeColor;
+    // Layer 3: text fill on top (uses palette text color)
+    ctx.fillStyle = el.textColor;
     ctx.fillText(el.text, textX, textY);
 
     ctx.restore();
