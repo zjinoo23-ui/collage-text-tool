@@ -3,8 +3,10 @@
 // ── Tunable thresholds (初值，后续可调) ──
 const TH = {
   tiltDeg: 8,            // |θ| ≥ 此值 → 平行四边形
-  cornerStretchMax: 0.15, // 四角随机拉伸最大幅度（占短边比例）
-  glyphCutoutProb: 0.35, // 非倾斜字形中，字形裁剪的概率（其余为矩形）
+  cornerStretchMax: 0.1, // 四角随机拉伸最大幅度（占短边比例）
+  glyphCutoutProb: 0.30, // 非倾斜字形中，字形裁剪的概率
+  pentagonProb: 0.25,    // 五边形概率
+  hexagonProb: 0.15,     // 六边形概率（剩余为矩形 0.30）
   glyphCutoutPad: 0.35,   // 字形裁剪的描边厚度（占字号比例）
 };
 
@@ -160,22 +162,29 @@ export function measureRealBounds(text, fontCss, fontSize) {
 }
 
 /**
- * Classify shape: only rect or parallelogram (based on glyph tilt).
- * Variety comes from random corner stretching, not shape categories.
- * @returns {string} 'rect' | 'parallelogram'
+ * Classify shape based on glyph features and probabilities.
+ * 标点→矩形；倾斜→平行四边形；否则按概率分配字形裁剪/五边形/六边形/矩形。
+ * @returns {string} 'rect' | 'parallelogram' | 'glyphCutout' | 'pentagon' | 'hexagon'
  */
 export function classifyShape(glyph, rng, isPunct = false) {
   if (isPunct) return 'rect';
   if (Math.abs(glyph.theta) >= TH.tiltDeg) return 'parallelogram';
-  return rng.chance(TH.glyphCutoutProb) ? 'glyphCutout' : 'rect';
+  const roll = rng.range(0, 1);
+  if (roll < TH.glyphCutoutProb) return 'glyphCutout';
+  if (roll < TH.glyphCutoutProb + TH.pentagonProb) return 'pentagon';
+  if (roll < TH.glyphCutoutProb + TH.pentagonProb + TH.hexagonProb) return 'hexagon';
+  return 'rect';
 }
 
 /**
  * Generate base corners, then apply independent random stretch to each corner.
+ * 五边形：顶边中间凸起一个角；六边形：顶边和底边各凸起一个角。
  */
 function buildCorners(shapeType, baseW, baseH, glyph, rng) {
-  // Step 1: base shape (rect or parallelogram)
+  // Step 1: base shape
   let corners;
+  let outRanges;
+
   if (shapeType === 'parallelogram') {
     const dir = glyph.theta >= 0 ? 1 : -1;
     const skew = Math.min(baseH * 0.35, Math.abs(glyph.theta) / 15 * baseH * 0.4) * rng.range(0.5, 1.3) * dir;
@@ -185,24 +194,67 @@ function buildCorners(shapeType, baseW, baseH, glyph, rng) {
       { x: baseW - skew, y: baseH },
       { x: 0, y: baseH },
     ];
+    outRanges = [
+      [Math.PI, Math.PI * 1.5],     // TL: up-left
+      [Math.PI * 1.5, Math.PI * 2],  // TR: up-right
+      [0, Math.PI * 0.5],           // BR: down-right
+      [Math.PI * 0.5, Math.PI],      // BL: down-left
+    ];
+  } else if (shapeType === 'pentagon') {
+    // 五边形：顶边中间向上凸起一个角
+    const bumpMag = baseH * rng.range(0.08, 0.18);
+    corners = [
+      { x: 0, y: 0 },                  // TL
+      { x: baseW * 0.5, y: -bumpMag }, // top middle（向上凸）
+      { x: baseW, y: 0 },              // TR
+      { x: baseW, y: baseH },          // BR
+      { x: 0, y: baseH },              // BL
+    ];
+    outRanges = [
+      [Math.PI, Math.PI * 1.5],          // TL: up-left
+      [Math.PI * 1.25, Math.PI * 1.75],  // top middle: up
+      [Math.PI * 1.5, Math.PI * 2],      // TR: up-right
+      [0, Math.PI * 0.5],               // BR: down-right
+      [Math.PI * 0.5, Math.PI],          // BL: down-left
+    ];
+  } else if (shapeType === 'hexagon') {
+    // 六边形：顶边和底边各凸起一个角
+    const bumpMagTop = baseH * rng.range(0.08, 0.18);
+    const bumpMagBot = baseH * rng.range(0.08, 0.18);
+    corners = [
+      { x: 0, y: 0 },                          // TL
+      { x: baseW * 0.5, y: -bumpMagTop },     // top middle（向上凸）
+      { x: baseW, y: 0 },                      // TR
+      { x: baseW, y: baseH },                  // BR
+      { x: baseW * 0.5, y: baseH + bumpMagBot }, // bottom middle（向下凸）
+      { x: 0, y: baseH },                      // BL
+    ];
+    outRanges = [
+      [Math.PI, Math.PI * 1.5],          // TL: up-left
+      [Math.PI * 1.25, Math.PI * 1.75],  // top middle: up
+      [Math.PI * 1.5, Math.PI * 2],      // TR: up-right
+      [0, Math.PI * 0.5],               // BR: down-right
+      [Math.PI * 0.25, Math.PI * 0.75],  // bottom middle: down
+      [Math.PI * 0.5, Math.PI],          // BL: down-left
+    ];
   } else {
+    // rect
     corners = [
       { x: 0, y: 0 },
       { x: baseW, y: 0 },
       { x: baseW, y: baseH },
       { x: 0, y: baseH },
     ];
+    outRanges = [
+      [Math.PI, Math.PI * 1.5],     // TL: up-left
+      [Math.PI * 1.5, Math.PI * 2], // TR: up-right
+      [0, Math.PI * 0.5],           // BR: down-right
+      [Math.PI * 0.5, Math.PI],      // BL: down-left
+    ];
   }
 
   // Step 2: each corner stretches outward only (prevents triangles/spikes)
-  // Corner order: TL, TR, BR, BL — each constrained to its outward quadrant
   const maxStretch = Math.min(baseW, baseH) * TH.cornerStretchMax;
-  const outRanges = [
-    [Math.PI, Math.PI * 1.5],   // TL: up-left
-    [Math.PI * 1.5, Math.PI * 2], // TR: up-right
-    [0, Math.PI * 0.5],          // BR: down-right
-    [Math.PI * 0.5, Math.PI],     // BL: down-left
-  ];
   corners = corners.map((c, i) => {
     const [a0, a1] = outRanges[i];
     const angle = rng.range(a0, a1);
@@ -372,7 +424,7 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
 export function pickTearStyle(rng, shapeType) {
   if (shapeType === 'glyphCutout') return 'straight';
   const roll = rng.range(0, 1);
-  if (shapeType === 'rect') {
+  if (shapeType === 'rect' || shapeType === 'pentagon' || shapeType === 'hexagon') {
     if (roll < 0.15) return 'straight';
     if (roll < 0.45) return 'fine';
     if (roll < 0.80) return 'rough';
