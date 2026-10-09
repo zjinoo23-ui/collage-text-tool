@@ -4,9 +4,9 @@
 const TH = {
   tiltDeg: 8,            // |θ| ≥ 此值 → 平行四边形
   cornerStretchMax: 0.1, // 四角随机拉伸最大幅度（占短边比例）
-  glyphCutoutProb: 0.20, // 非倾斜字形中，字形裁剪的概率
-  pentagonProb: 0.30,    // 五边形概率
-  hexagonProb: 0.20,     // 六边形概率（剩余为矩形 0.30）
+  glyphCutoutProb: 0.25, // 非倾斜字形中，字形裁剪的概率
+  pentagonProb: 0.15,    // 五边形概率
+  hexagonProb: 0.10,     // 六边形概率（剩余为矩形 0.50）
   glyphCutoutPad: 0.35,   // 字形裁剪的描边厚度（占字号比例）
 };
 
@@ -377,18 +377,18 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     };
   }
 
-  // ── Standard shapes (rect / parallelogram) ──
+  // ── Standard shapes (rect / parallelogram / pentagon / hexagon) ──
   let padX, padY, shapeSafety;
   if (isPunct) {
     // Punctuation: slightly larger paper relative to glyph
-    padX = textWidth * 0.45 + textHeight * 0.25;
-    padY = textHeight * 0.5;
-    shapeSafety = textHeight * 0.3;
+    padX = textWidth * 0.20 + textHeight * 0.12;
+    padY = textHeight * 0.20;
+    shapeSafety = textHeight * 0.15;
   } else {
-    padX = textWidth * 0.15 + textHeight * 0.15;
-    padY = textHeight * 0.3;
+    padX = textWidth * 0.08 + textHeight * 0.08;
+    padY = textHeight * 0.10;
     const isShaped = (shapeType === 'parallelogram');
-    shapeSafety = isShaped ? textWidth * 0.30 + textHeight * 0.2 : textHeight * 0.15;
+    shapeSafety = isShaped ? textWidth * 0.15 + textHeight * 0.10 : textHeight * 0.075;
   }
   const baseW = textWidth + padX * 2 + shapeSafety;
   const baseH = textHeight + padY * 2 + shapeSafety * 0.5;
