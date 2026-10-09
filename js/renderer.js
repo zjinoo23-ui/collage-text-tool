@@ -76,43 +76,56 @@ export function renderToCanvas(params, canvas) {
     }
     ctx.restore();
 
-    // Draw paper fill — use seamless tiled texture if assets loaded, else solid color
+    // Draw paper fill — 底色 + 纹理叠加（正片叠底 Multiply）
+    // 纹理随机取一块区域（基于 element seed），避免每个纸片纹理位置相同
     const texImg = assetsReady() ? getTextureImages()[el.textureIdx] : null;
     const bw = el.paper.bounds.w;
     const bh = el.paper.bounds.h;
 
+    // 随机偏移：基于 element index 派生，让每个纸片从纹理图不同位置取样
+    const texW = texImg ? (texImg.naturalWidth || 100) : 100;
+    const texH = texImg ? (texImg.naturalHeight || 100) : 100;
+    const ox = -(((el.index * 73 + 41) % 1000) / 1000 * texW);
+    const oy = -(((el.index * 97 + 29) % 1000) / 1000 * texH);
+
     if (el.paper.mask) {
-      // glyphCutout: render texture/fill clipped to glyph outline mask
+      // glyphCutout: 底色 + 纹理叠加，裁剪到字形轮廓
       const tmp = document.createElement('canvas');
       tmp.width = bw;
       tmp.height = bh;
       const tctx = tmp.getContext('2d');
+      // 第 1 层：底色
+      tctx.fillStyle = el.fillColor;
+      tctx.fillRect(0, 0, bw, bh);
+      // 第 2 层：纹理（正片叠底）
       if (texImg) {
+        tctx.globalCompositeOperation = 'multiply';
         const pattern = tctx.createPattern(texImg, 'repeat');
         tctx.fillStyle = pattern;
-        const ox = -(el.index * 37) % Math.max(1, texImg.naturalWidth || 100);
-        const oy = -(el.index * 53) % Math.max(1, texImg.naturalHeight || 100);
         tctx.translate(ox, oy);
         tctx.fillRect(-ox, -oy, bw + Math.abs(ox) + 100, bh + Math.abs(oy) + 100);
-      } else {
-        tctx.fillStyle = el.fillColor;
-        tctx.fillRect(0, 0, bw, bh);
+        tctx.globalCompositeOperation = 'source-over';
       }
       tctx.setTransform(1, 0, 0, 1, 0, 0);
       tctx.globalCompositeOperation = 'destination-in';
       tctx.drawImage(el.paper.mask, 0, 0);
       ctx.drawImage(tmp, 0, 0);
     } else if (texImg) {
+      // 普通形状：底色 + 纹理叠加
       ctx.save();
       ctx.clip(el.paper.path);
+      // 第 1 层：底色
+      ctx.fillStyle = el.fillColor;
+      ctx.fillRect(0, 0, bw, bh);
+      // 第 2 层：纹理（正片叠底）
+      ctx.globalCompositeOperation = 'multiply';
       const pattern = ctx.createPattern(texImg, 'repeat');
       ctx.fillStyle = pattern;
-      const ox = -(el.index * 37) % Math.max(1, texImg.naturalWidth || 100);
-      const oy = -(el.index * 53) % Math.max(1, texImg.naturalHeight || 100);
       ctx.translate(ox, oy);
       ctx.fillRect(-ox, -oy, bw + Math.abs(ox) + 100, bh + Math.abs(oy) + 100);
       ctx.restore();
     } else {
+      // 无纹理：纯底色
       ctx.fillStyle = el.fillColor;
       ctx.fill(el.paper.path);
     }

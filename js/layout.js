@@ -59,8 +59,8 @@ function computeLayoutWithFontSize(p) {
     align, seed, randomAmount, baseFontSize, toggles, colorScheme, ctx } = p;
 
   const randomFactor = randomAmount / 100;
-  const gap = baseFontSize * 0.45;
-  const lineGap = baseFontSize * 0.35;
+  const gap = baseFontSize * 0.15;
+  const lineGap = baseFontSize * 0.55;
 
   // Pass 1: Analyze glyphs, classify shapes, pick tear styles, generate papers
   const items = units.map((unit, i) => {
