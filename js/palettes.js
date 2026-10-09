@@ -84,27 +84,123 @@ export function getPaletteById(id) {
   return PALETTES.find(p => p.id === id);
 }
 
+// ── WCAG 对比度计算（带缓存）──
+const _luminanceCache = new Map();
+
+/** 计算颜色的相对亮度（WCAG 2.1 标准） */
+function relativeLuminance(hex) {
+  if (_luminanceCache.has(hex)) return _luminanceCache.get(hex);
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const lin = c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  _luminanceCache.set(hex, L);
+  return L;
+}
+
+/** 计算两个颜色之间的对比度（1-21） */
+function contrastRatio(hex1, hex2) {
+  const L1 = relativeLuminance(hex1);
+  const L2 = relativeLuminance(hex2);
+  const lighter = Math.max(L1, L2);
+  const darker = Math.min(L1, L2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 /**
- * Pick a palette and assign colors using rng.
- * @param {object} rng - RNG instance
- * @param {number} driftAmount - 0-1, amount of color drift
- * @returns {object} { palette, getFill, getText, getStroke }
+ * 智能配色方案：用对比度筛选颜色，保证文字可读、描边有效。
+ * @param {object} rng - RNG 实例（用于选方案）
+ * @param {number} driftAmount - 0-1，颜色漂移幅度
+ * @returns {object} { palette, getColors(posRng, prevColors) }
  */
 export function createColorScheme(rng, driftAmount = 0) {
   const palette = rng.pick(PALETTES);
 
   return {
     palette,
-    getFill(positionRng) {
-      const base = positionRng.pick(palette.fills);
-      return driftAmount > 0 ? driftColorWithRng(base, positionRng, driftAmount) : base;
-    },
-    getText(positionRng) {
-      const base = positionRng.pick(palette.textColors);
-      return driftAmount > 0 ? driftColorWithRng(base, positionRng, driftAmount) : base;
-    },
-    getStroke(positionRng) {
-      return positionRng.pick(palette.strokeColors);
+    /**
+     * 智能选色：底色 → 按对比度筛文字色 → 按对比度筛描边色
+     * @param {object} posRng - 位置 RNG
+     * @param {object|null} prevColors - 上一个字的颜色（用于避免相邻完全同色）
+     * @returns {{fill:string, text:string, stroke:string}}
+     */
+    getColors(posRng, prevColors = null) {
+      let fill, text, stroke;
+      let bestCombo = null;
+      let bestScore = -1;
+
+      // 最多尝试 5 次，找到对比度合格的组合
+      for (let attempt = 0; attempt < 5; attempt++) {
+        // 第 1 步：随机选纸片底色
+        fill = posRng.pick(palette.fills);
+        if (driftAmount > 0) fill = driftColorWithRng(fill, posRng, driftAmount);
+
+        // 第 2 步：从文字颜色中按对比度筛选
+        const textCandidates = palette.textColors.map(c => ({
+          hex: driftAmount > 0 ? driftColorWithRng(c, posRng, driftAmount) : c,
+          contrast: 0
+        }));
+        for (const tc of textCandidates) tc.contrast = contrastRatio(fill, tc.hex);
+
+        // 优先对比度 ≥ 4.5 的
+        let qualified = textCandidates.filter(tc => tc.contrast >= 4.5);
+        // 没有合格的，放宽到 ≥ 3.0
+        if (qualified.length === 0) qualified = textCandidates.filter(tc => tc.contrast >= 3.0);
+        // 仍然没有，选对比度最高的
+        if (qualified.length === 0) {
+          text = textCandidates.reduce((a, b) => a.contrast > b.contrast ? a : b).hex;
+        } else {
+          // 在合格的里随机选（不选最高，保留变化）
+          text = posRng.pick(qualified).hex;
+        }
+
+        // 第 3 步：筛选描边颜色
+        const strokeCandidates = palette.strokeColors.map(c => ({
+          hex: c,
+          vsText: contrastRatio(c, text),
+          vsFill: contrastRatio(c, fill)
+        }));
+
+        // 描边需要和文字有区别(≥3) 且 和底色有区别(≥3)
+        let qualifiedStrokes = strokeCandidates.filter(s => s.vsText >= 3 && s.vsFill >= 3);
+        if (qualifiedStrokes.length === 0) {
+          // 放宽：至少和文字或底色之一有 ≥3 区别
+          qualifiedStrokes = strokeCandidates.filter(s => s.vsText >= 3 || s.vsFill >= 3);
+        }
+        if (qualifiedStrokes.length > 0) {
+          stroke = posRng.pick(qualifiedStrokes).hex;
+        } else {
+          // 兜底：选 #171717 或 #FFFFFF 中对比度更好的
+          const fallback1 = '#171717';
+          const fallback2 = '#FFFFFF';
+          const c1 = Math.max(contrastRatio(fallback1, text), contrastRatio(fallback1, fill));
+          const c2 = Math.max(contrastRatio(fallback2, text), contrastRatio(fallback2, fill));
+          stroke = c1 >= c2 ? fallback1 : fallback2;
+        }
+
+        // 计算综合得分（文字对比度 + 描边对比度的最小值）
+        const score = Math.min(contrastRatio(fill, text),
+          Math.min(contrastRatio(stroke, text), contrastRatio(stroke, fill)));
+
+        // 如果文字对比度 ≥ 4.5 且描边对比度 ≥ 3，合格
+        if (contrastRatio(fill, text) >= 4.5 && score >= 3) {
+          // 检查是否和上一个字完全相同（避免相邻同色）
+          if (prevColors && fill === prevColors.fill && text === prevColors.text && stroke === prevColors.stroke) {
+            if (attempt < 4) continue; // 重试
+          }
+          return { fill, text, stroke };
+        }
+
+        // 记录最佳候选
+        if (score > bestScore) {
+          bestScore = score;
+          bestCombo = { fill, text, stroke };
+        }
+      }
+
+      // 5 次都没找到完美组合，用最佳候选
+      return bestCombo || { fill, text: '#171717', stroke: '#FFFFFF' };
     }
   };
 }

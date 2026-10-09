@@ -63,6 +63,7 @@ function computeLayoutWithFontSize(p) {
   const lineGap = baseFontSize * 0.55;
 
   // Pass 1: Analyze glyphs, classify shapes, pick tear styles, generate papers
+  let prevColors = null; // 记录上一个字的颜色，用于避免相邻同色
   const items = units.map((unit, i) => {
     const posRng = createPositionRng(seed, i);
     let fontIdx = 0;
@@ -95,9 +96,8 @@ function computeLayoutWithFontSize(p) {
     const charColorScheme = toggles.color
       ? createColorScheme(createRng(seed + i * 997), drift)
       : colorScheme;
-    const fillColor = charColorScheme.getFill(posRng);
-    const textColor = charColorScheme.getText(posRng);
-    const strokeColor = charColorScheme.getStroke(posRng);
+    const { fill: fillColor, text: textColor, stroke: strokeColor } = charColorScheme.getColors(posRng, prevColors);
+    prevColors = { fill: fillColor, text: textColor, stroke: strokeColor };
     return { unit, posRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy };
   });
 
