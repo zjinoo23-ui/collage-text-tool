@@ -4,9 +4,9 @@
 const TH = {
   tiltDeg: 8,            // |θ| ≥ 此值 → 平行四边形
   cornerStretchMax: 0.1, // 四角随机拉伸最大幅度（占短边比例）
-  glyphCutoutProb: 0.30, // 非倾斜字形中，字形裁剪的概率
-  pentagonProb: 0.25,    // 五边形概率
-  hexagonProb: 0.15,     // 六边形概率（剩余为矩形 0.30）
+  glyphCutoutProb: 0.20, // 非倾斜字形中，字形裁剪的概率
+  pentagonProb: 0.30,    // 五边形概率
+  hexagonProb: 0.20,     // 六边形概率（剩余为矩形 0.30）
   glyphCutoutPad: 0.35,   // 字形裁剪的描边厚度（占字号比例）
 };
 
