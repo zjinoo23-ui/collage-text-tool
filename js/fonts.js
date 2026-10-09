@@ -3,16 +3,10 @@
 // Google Fonts are kept as base; local fonts extend the pool.
 
 const LOCAL_FONTS = [
-  'BaoCanMouHuiTingShouXieTi2.0-2.ttf',
-  'PangMenZhengDaoXiXianTi-2.ttf',
-  'PingFangYuTongTi-2.ttf',
   'SmileySans-Oblique-2.ttf',
   'WuHanYingXiongTi-3.1-2.ttf',
   'YeZiGongChangXiaoShiTou-2.ttf',
-  'YouSheYuFeiTeJianKangTi-2.ttf',
   'ZhengQingKeHuangYouTi-1.ttf',
-  'ZhengQingKeNanBeiCiGongPuSongTi-2.ttf',
-  'ZhouZiFangTi241010-TTF-2.ttf',
   'ZhuoTeZiYouTi-2.otf',
   'ZiKuJiangHuGuFengTi-2.ttf',
 ];
