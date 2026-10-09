@@ -3,74 +3,74 @@
 
 const PALETTES = [
   {
-    id: 'vintage-cream',
-    name: '复古奶油',
-    fills: ['#FFF8E7', '#F5E6C8', '#E8D5B0', '#D4C4A8', '#F0DFC0'],
-    textColors: ['#8B7355', '#6B5344', '#5A4A3A'],
-    strokeColors: ['#4A3F35', '#3A2F25']
+    id: 'vintage-mag-clash',
+    name: '复古杂志撞色',
+    fills: ['#F7C6D0', '#F4D35E', '#8EC5E8', '#E99A79', '#B8D986'],
+    textColors: ['#202020', '#174A8B', '#C72C48'],
+    strokeColors: ['#FFFFFF', '#35252C']
   },
   {
-    id: 'morandi-pink',
-    name: '莫兰迪灰粉',
-    fills: ['#F5E6E0', '#E8D5D0', '#DCC8C4', '#F0E0DC', '#E5D0CC'],
-    textColors: ['#7A5F5C', '#5C4F4C', '#684A4A'],
-    strokeColors: ['#443838', '#332D2D']
+    id: 'candy-pink-blue',
+    name: '糖果粉蓝',
+    fills: ['#FFB3D1', '#F7D6E0', '#8ED8F8', '#B8B5FF', '#FFF0A8'],
+    textColors: ['#D92772', '#1747A6', '#43265E'],
+    strokeColors: ['#FFFFFF', '#282044']
   },
   {
-    id: 'fresh-mint',
-    name: '清新薄荷',
-    fills: ['#EAF7F0', '#D8EFE5', '#C5E4D7', '#E0F2E8', '#BBDACD'],
-    textColors: ['#39705C', '#285746', '#32664F'],
-    strokeColors: ['#204438', '#17352C']
+    id: 'lemon-orange-soda',
+    name: '柠檬橘子汽水',
+    fills: ['#FFF176', '#FFC857', '#FF9B71', '#FFB7A5', '#B9E769'],
+    textColors: ['#D93625', '#243B7A', '#242424'],
+    strokeColors: ['#FFFFFF', '#572C27']
   },
   {
-    id: 'cream-lemon',
-    name: '奶油柠檬',
-    fills: ['#FFFBE6', '#F8F1C8', '#EFE5A8', '#F5EBC5', '#E5D99A'],
-    textColors: ['#85752E', '#66591F', '#584D22'],
-    strokeColors: ['#403916', '#302C12']
+    id: 'cobalt-yellow',
+    name: '钴蓝与亮黄',
+    fills: ['#A8D8F0', '#F9E547', '#7CC8C0', '#F7B6CB', '#C5B7F2'],
+    textColors: ['#1746A2', '#E63845', '#202020'],
+    strokeColors: ['#FFFFFF', '#192B56']
   },
   {
-    id: 'vintage-brick',
-    name: '复古砖红',
-    fills: ['#F8E8DF', '#EFD5CA', '#E5C1B5', '#F2DDD4', '#DDB8AC'],
-    textColors: ['#984F45', '#773D37', '#63332F'],
-    strokeColors: ['#4A2926', '#35201E']
+    id: 'pop-art',
+    name: '波普艺术红黄蓝',
+    fills: ['#F04452', '#FFD84D', '#4DB6E5', '#F7A8C8', '#79C96B'],
+    textColors: ['#171717', '#FFFFFF', '#172D70'],
+    strokeColors: ['#202020', '#FFFFFF']
   },
   {
-    id: 'haze-blue-gray',
-    name: '雾霾蓝灰',
-    fills: ['#E8F0F3', '#D5E3E8', '#C3D5DC', '#DEE9ED', '#B8CDD5'],
-    textColors: ['#496875', '#385460', '#304852'],
-    strokeColors: ['#263B43', '#1D2D33']
+    id: 'sour-sweet-glucose',
+    name: '酸甜葡萄糖',
+    fills: ['#E7B5F5', '#FFB8D2', '#C7B8FF', '#F6D96B', '#A8E6CF'],
+    textColors: ['#7129A6', '#D62978', '#252525'],
+    strokeColors: ['#FFFFFF', '#46204E']
   },
   {
-    id: 'milk-caramel',
-    name: '奶茶焦糖',
-    fills: ['#F7EBDD', '#EED9C5', '#E3C6A9', '#F1DDCA', '#D9B996'],
-    textColors: ['#916A4C', '#704D36', '#5D402F'],
-    strokeColors: ['#432E24', '#33231D']
+    id: 'strawberry-milk',
+    name: '活力草莓牛奶',
+    fills: ['#FFB4B4', '#F57D9B', '#FFE2A8', '#FFCEE5', '#B6E3D1'],
+    textColors: ['#C51E46', '#7D245A', '#253A67'],
+    strokeColors: ['#FFFFFF', '#4A2032']
   },
   {
-    id: 'lavender',
-    name: '薰衣草紫',
-    fills: ['#F1ECF7', '#E4DCEE', '#D8CEE5', '#EBE3F1', '#CBBFD9'],
-    textColors: ['#716080', '#594A68', '#4C3F59'],
-    strokeColors: ['#382E42', '#29232F']
+    id: 'street-graffiti',
+    name: '街头涂鸦',
+    fills: ['#FF7A45', '#FFD447', '#58C4DD', '#D6F36A', '#F5A6D0'],
+    textColors: ['#171717', '#1749B0', '#D51F35'],
+    strokeColors: ['#FFFFFF', '#202020']
   },
   {
-    id: 'cool-black-silver',
-    name: '酷黑银灰',
-    fills: ['#F2F2F0', '#DFE0DE', '#CECFCC', '#E8E8E5', '#BFC1BE'],
-    textColors: ['#454745', '#303332', '#252827'],
-    strokeColors: ['#171918', '#0B0C0C']
+    id: 'sea-salt-mint',
+    name: '清新海盐薄荷',
+    fills: ['#A8E6CF', '#B5E7F5', '#D1F28A', '#FFF0A6', '#F7B8D0'],
+    textColors: ['#176B68', '#2455A4', '#C53662'],
+    strokeColors: ['#FFFFFF', '#25413E']
   },
   {
-    id: 'vintage-olive',
-    name: '复古橄榄绿',
-    fills: ['#F0F1DF', '#E2E5C8', '#D2D8B2', '#E8EACF', '#C2CAA0'],
-    textColors: ['#687044', '#4F5935', '#41492E'],
-    strokeColors: ['#303621', '#222719']
+    id: 'retro-rock',
+    name: '彩色复古摇滚',
+    fills: ['#F3A6A6', '#E8C95A', '#83B9DB', '#B7CE73', '#D5A6CF'],
+    textColors: ['#242424', '#C62838', '#253D78'],
+    strokeColors: ['#FFFFFF', '#33252B']
   }
 ];
 
