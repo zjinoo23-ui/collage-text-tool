@@ -371,9 +371,9 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     const boundsW = maxX - minX + 1;
     const boundsH = maxY - minY + 1;
 
-    // bounds 中心（裁剪后的有效区域中心），用于文字定位
-    const centerX = boundsW / 2;
-    const centerY = boundsH / 2;
+    // 文字在裁剪后 bounds 中的实际位置 = mask 中心 - maskOffset
+    const centerX = cw / 2 - minX;
+    const centerY = ch / 2 - minY;
 
     return {
       path: null,
