@@ -322,19 +322,14 @@ function applyTear(corners, tearKey, rng, charSize, safeBox = null) {
  */
 export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, rng, isPunct = false, text = '', fontCss = '', fontSize = 0, strokeW = 0) {
   // ── glyphCutout: paper hugs the glyph outline with thick padding ──
-  // 旋转不在此处理，遮罩用固定最大旋转角度(12°)做保守余量
+  // 旋转不在此处理——渲染阶段 mask 和文字一起旋转，相对位置不变
+  // 所以 mask 画布用未旋转的文字尺寸即可，不需要保守余量
   if (shapeType === 'glyphCutout' && text && fontCss) {
     const pad = fontSize * TH.glyphCutoutPad;
-    // 用最大旋转角度算保守边界框，确保遮罩在任何旋转下都覆盖文字
-    const maxRad = TH.maxRotationDeg * Math.PI / 180;
-    const absSin = Math.sin(maxRad);
-    const absCos = Math.cos(maxRad);
-    const rotatedW = textWidth * absCos + textHeight * absSin;
-    const rotatedH = textWidth * absSin + textHeight * absCos;
     const maskPad = Math.max(pad, (strokeW || 0) / 2) + 4;
     const extraPad = maskPad + 6;
-    const cw = Math.ceil(rotatedW + extraPad * 2);
-    const ch = Math.ceil(rotatedH + extraPad * 2);
+    const cw = Math.ceil(textWidth + extraPad * 2);
+    const ch = Math.ceil(textHeight + extraPad * 2);
     const mask = document.createElement('canvas');
     mask.width = cw;
     mask.height = ch;

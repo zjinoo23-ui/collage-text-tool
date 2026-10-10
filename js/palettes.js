@@ -127,22 +127,14 @@ export function createColorScheme(rng, driftAmount = 0) {
      */
     getColors(posRng, prevColors = null) {
       let fill, text, stroke;
-      let bestCombo = null;
-      let bestScore = -1;
 
-      // 最多尝试 5 次，找到对比度合格的组合
-      for (let attempt = 0; attempt < 5; attempt++) {
-        // 第 1 步：随机选纸片底色
+      // 最多尝试 8 次，找到对比度合格的组合
+      for (let attempt = 0; attempt < 8; attempt++) {
+        // 第 1 步：随机选纸片底色（不漂移，先保证对比度）
         fill = posRng.pick(palette.fills);
-        if (driftAmount > 0) fill = driftColorWithRng(fill, posRng, driftAmount);
 
-        // 第 2 步：从文字颜色中按对比度筛选
-        const textCandidates = palette.textColors.map(c => ({
-          hex: driftAmount > 0 ? driftColorWithRng(c, posRng, driftAmount) : c,
-          contrast: 0
-        }));
-        for (const tc of textCandidates) tc.contrast = contrastRatio(fill, tc.hex);
-
+        // 第 2 步：从文字颜色中按对比度筛选（不漂移）
+        let textCandidates = palette.textColors.map(c => ({ hex: c, contrast: contrastRatio(fill, c) }));
         // 优先对比度 ≥ 4.5 的
         let qualified = textCandidates.filter(tc => tc.contrast >= 4.5);
         // 没有合格的，放宽到 ≥ 3.0
@@ -151,7 +143,6 @@ export function createColorScheme(rng, driftAmount = 0) {
         if (qualified.length === 0) {
           text = textCandidates.reduce((a, b) => a.contrast > b.contrast ? a : b).hex;
         } else {
-          // 在合格的里随机选（不选最高，保留变化）
           text = posRng.pick(qualified).hex;
         }
 
@@ -162,16 +153,16 @@ export function createColorScheme(rng, driftAmount = 0) {
           vsFill: contrastRatio(c, fill)
         }));
 
-        // 描边需要和文字有区别(≥3) 且 和底色有区别(≥3)
-        let qualifiedStrokes = strokeCandidates.filter(s => s.vsText >= 3 && s.vsFill >= 3);
+        // 描边需要和文字有区别(≥5) 且 和底色有区别(≥3)
+        let qualifiedStrokes = strokeCandidates.filter(s => s.vsText >= 5 && s.vsFill >= 3);
         if (qualifiedStrokes.length === 0) {
-          // 放宽：至少和文字或底色之一有 ≥3 区别
+          // 放宽：至少和文字 ≥3 或 和底色 ≥3
           qualifiedStrokes = strokeCandidates.filter(s => s.vsText >= 3 || s.vsFill >= 3);
         }
         if (qualifiedStrokes.length > 0) {
           stroke = posRng.pick(qualifiedStrokes).hex;
         } else {
-          // 兜底：选 #171717 或 #FFFFFF 中对比度更好的
+          // 兜底
           const fallback1 = '#171717';
           const fallback2 = '#FFFFFF';
           const c1 = Math.max(contrastRatio(fallback1, text), contrastRatio(fallback1, fill));
@@ -179,28 +170,32 @@ export function createColorScheme(rng, driftAmount = 0) {
           stroke = c1 >= c2 ? fallback1 : fallback2;
         }
 
-        // 计算综合得分（文字对比度 + 描边对比度的最小值）
-        const score = Math.min(contrastRatio(fill, text),
-          Math.min(contrastRatio(stroke, text), contrastRatio(stroke, fill)));
+        // 第 4 步：漂移（在选好颜色之后漂移）
+        if (driftAmount > 0) {
+          fill = driftColorWithRng(fill, posRng, driftAmount);
+          text = driftColorWithRng(text, posRng, driftAmount);
+          stroke = driftColorWithRng(stroke, posRng, driftAmount);
+        }
 
-        // 如果文字对比度 ≥ 4.5 且描边对比度 ≥ 3，合格
-        if (contrastRatio(fill, text) >= 4.5 && score >= 3) {
-          // 检查是否和上一个字完全相同（避免相邻同色）
+        // 第 5 步：漂移后再检查对比度，确保仍然合格
+        const fillTextContrast = contrastRatio(fill, text);
+        const strokeTextContrast = contrastRatio(stroke, text);
+        const strokeFillContrast = contrastRatio(stroke, fill);
+
+        const score = Math.min(fillTextContrast, strokeTextContrast, strokeFillContrast);
+
+        // 文字 vs 底色 ≥ 4.5，描边 vs 文字 ≥ 5（防混色），描边 vs 底色 ≥ 3
+        if (fillTextContrast >= 4.5 && strokeTextContrast >= 5 && strokeFillContrast >= 3) {
+          // 检查是否和上一个字完全相同
           if (prevColors && fill === prevColors.fill && text === prevColors.text && stroke === prevColors.stroke) {
-            if (attempt < 4) continue; // 重试
+            if (attempt < 7) continue;
           }
           return { fill, text, stroke };
         }
-
-        // 记录最佳候选
-        if (score > bestScore) {
-          bestScore = score;
-          bestCombo = { fill, text, stroke };
-        }
       }
 
-      // 5 次都没找到完美组合，用最佳候选
-      return bestCombo || { fill, text: '#171717', stroke: '#FFFFFF' };
+      // 兜底
+      return { fill, text: '#171717', stroke: '#FFFFFF' };
     }
   };
 }
