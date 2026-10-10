@@ -178,16 +178,13 @@ export function measureRealBounds(text, fontCss, fontSize, strokeW = 0) {
 
 /**
  * Classify shape based on glyph features and probabilities.
- * 标点→矩形；倾斜→平行四边形；否则按概率分配字形裁剪/五边形/六边形/矩形。
- * @returns {string} 'rect' | 'parallelogram' | 'glyphCutout' | 'pentagon' | 'hexagon'
+ * 标点→矩形；否则按概率分配字形裁剪/矩形。
+ * @returns {string} 'rect' | 'glyphCutout'
  */
 export function classifyShape(glyph, rng, isPunct = false) {
   if (isPunct) return 'rect';
-  // 平行四边形已取消：倾斜字母也用矩形扇形模型
   const roll = rng.range(0, 1);
   if (roll < TH.glyphCutoutProb) return 'glyphCutout';
-  if (roll < TH.glyphCutoutProb + TH.pentagonProb) return 'pentagon';
-  if (roll < TH.glyphCutoutProb + TH.pentagonProb + TH.hexagonProb) return 'hexagon';
   return 'rect';
 }
 
