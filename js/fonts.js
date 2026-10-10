@@ -22,8 +22,8 @@ const GOOGLE_FONTS = [
 
 const CJK_FALLBACK = '"Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif';
 
-// Build unified font list from Google + local
-const FONTS = [...GOOGLE_FONTS];
+// Build unified font list: ONLY local fonts (Google Fonts are base fallback, not in random pool)
+const FONTS = [];
 for (const file of LOCAL_FONTS) {
   const name = file.replace(/\.(ttf|otf|woff2?)$/i, '');
   const ext = file.match(/\.(ttf|otf|woff2?)$/i)?.[1]?.toLowerCase() || 'ttf';
