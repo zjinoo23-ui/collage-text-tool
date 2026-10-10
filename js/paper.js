@@ -7,7 +7,7 @@ const TH = {
   glyphCutoutProb: 0.25, // 非倾斜字形中，字形裁剪的概率
   pentagonProb: 0.15,    // 五边形概率
   hexagonProb: 0.10,     // 六边形概率（剩余为矩形 0.50）
-  glyphCutoutPad: 0.35,   // 字形裁剪的描边厚度（占字号比例）
+  glyphCutoutPad: 0.175,  // 字形裁剪的描边厚度（占字号比例）
   // ── 矩形纸片：预防式约束模型 ──
   safeMarginRatio: 0.04, // 安全框边距（占字号比例）
   fanRadiusRatio: 0.12,  // 顶点扇形半径（占字号比例）
