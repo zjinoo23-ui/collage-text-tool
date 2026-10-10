@@ -269,6 +269,43 @@ function buildCorners(shapeType, baseW, baseH, glyph, rng) {
 }
 
 /**
+ * Check if a point is inside a polygon (ray casting algorithm).
+ */
+function isPointInPolygon(px, py, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    if (((yi > py) !== (yj > py)) &&
+        (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/**
+ * Check if the safeBox is fully contained within the polygon.
+ * Tests safeBox corners + edge midpoints.
+ */
+function safeBoxInPolygon(corners, safeBox) {
+  const pts = [
+    { x: safeBox.safeMinX, y: safeBox.safeMinY },
+    { x: safeBox.safeMaxX, y: safeBox.safeMinY },
+    { x: safeBox.safeMaxX, y: safeBox.safeMaxY },
+    { x: safeBox.safeMinX, y: safeBox.safeMaxY },
+    { x: (safeBox.safeMinX + safeBox.safeMaxX) / 2, y: safeBox.safeMinY },
+    { x: safeBox.safeMaxX, y: (safeBox.safeMinY + safeBox.safeMaxY) / 2 },
+    { x: (safeBox.safeMinX + safeBox.safeMaxX) / 2, y: safeBox.safeMaxY },
+    { x: safeBox.safeMinX, y: (safeBox.safeMinY + safeBox.safeMaxY) / 2 },
+  ];
+  for (const p of pts) {
+    if (!isPointInPolygon(p.x, p.y, corners)) return false;
+  }
+  return true;
+}
+
+/**
  * Apply edge tear style to corners, producing a Path2D.
  */
 function applyTear(corners, tearKey, rng, charSize, safeBox = null) {
@@ -276,14 +313,19 @@ function applyTear(corners, tearKey, rng, charSize, safeBox = null) {
   const path = new Path2D();
 
   // 安全框约束：沿法线方向限制向内的撕裂偏移
-  // 不区分斜边/直边，统一沿边的法线方向计算到 safeBox 的剩余空间
+  // 不区分斜边/直边，统一沿边的法线方向计算到 safeBox 入口边界的距离
+  // 关键：计算的是"进入"safeBox 的距离（近边界），不是"穿出"的距离（远边界）
   const inwardSpace = (bx, by, nx, ny) => {
     if (!safeBox) return Infinity;
     let t = Infinity;
-    if (nx > 1e-6) t = Math.min(t, (safeBox.safeMaxX - bx) / nx);
-    if (nx < -1e-6) t = Math.min(t, (safeBox.safeMinX - bx) / nx);
-    if (ny > 1e-6) t = Math.min(t, (safeBox.safeMaxY - by) / ny);
-    if (ny < -1e-6) t = Math.min(t, (safeBox.safeMinY - by) / ny);
+    // nx > 0 (向右内)：先碰到 safeMinX（左边界 = 入口）
+    if (nx > 1e-6) t = Math.min(t, (safeBox.safeMinX - bx) / nx);
+    // nx < 0 (向左内)：先碰到 safeMaxX（右边界 = 入口）
+    if (nx < -1e-6) t = Math.min(t, (safeBox.safeMaxX - bx) / nx);
+    // ny > 0 (向下内)：先碰到 safeMinY（上边界 = 入口）
+    if (ny > 1e-6) t = Math.min(t, (safeBox.safeMinY - by) / ny);
+    // ny < 0 (向上内)：先碰到 safeMaxY（下边界 = 入口）
+    if (ny < -1e-6) t = Math.min(t, (safeBox.safeMaxY - by) / ny);
     return t;
   };
   const tearPoint = (bx, by, nx, ny, offset) => {
@@ -416,31 +458,58 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     padX = textWidth * 0.08 + textHeight * 0.08;
     padY = textHeight * 0.10;
     const isShaped = (shapeType === 'parallelogram');
-    shapeSafety = isShaped ? textWidth * 0.15 + textHeight * 0.10 : textHeight * 0.075;
+    // 平行四边形需要更大安全余量：skew 导致斜边切入 safeBox
+    shapeSafety = isShaped ? textWidth * 0.30 + textHeight * 0.20 : textHeight * 0.075;
   }
   const baseW = textWidth + padX * 2 + shapeSafety;
   const baseH = textHeight + padY * 2 + shapeSafety * 0.5;
 
   const corners = buildCorners(shapeType, baseW, baseH, glyph, rng);
-  const minX = Math.min(...corners.map(c => c.x));
-  const minY = Math.min(...corners.map(c => c.y));
-  const maxX = Math.max(...corners.map(c => c.x));
-  const maxY = Math.max(...corners.map(c => c.y));
-  const normCorners = corners.map(c => ({ x: c.x - minX, y: c.y - minY }));
-  const boundsW = maxX - minX;
-  const boundsH = maxY - minY;
-  const cx = normCorners.reduce((s, c) => s + c.x, 0) / normCorners.length;
-  const cy = normCorners.reduce((s, c) => s + c.y, 0) / normCorners.length;
-
-  const charSize = Math.min(boundsW, boundsH);
+  let minX = Math.min(...corners.map(c => c.x));
+  let minY = Math.min(...corners.map(c => c.y));
+  let maxX = Math.max(...corners.map(c => c.x));
+  let maxY = Math.max(...corners.map(c => c.y));
+  let normCorners = corners.map(c => ({ x: c.x - minX, y: c.y - minY }));
+  let boundsW = maxX - minX;
+  let boundsH = maxY - minY;
 
   // 文字安全框：文字居中在 bounds 内，加 2px 余量
-  const safeBox = {
+  let safeBox = {
     safeMinX: boundsW / 2 - textWidth / 2 - 2,
     safeMaxX: boundsW / 2 + textWidth / 2 + 2,
     safeMinY: boundsH / 2 - textHeight / 2 - 2,
     safeMaxY: boundsH / 2 + textHeight / 2 + 2
   };
+
+  // 确保纸片多边形完全包含 safeBox
+  // 平行四边形等斜边形状的角点拉伸可能导致 safeBox 超出多边形
+  // 从中心向外缩放角点，直到 safeBox 完全在多边形内
+  for (let iter = 0; iter < 8; iter++) {
+    if (safeBoxInPolygon(normCorners, safeBox)) break;
+    const scx = boundsW / 2;
+    const scy = boundsH / 2;
+    const scaled = normCorners.map(c => ({
+      x: scx + (c.x - scx) * 1.08,
+      y: scy + (c.y - scy) * 1.08
+    }));
+    minX = Math.min(...scaled.map(c => c.x));
+    minY = Math.min(...scaled.map(c => c.y));
+    maxX = Math.max(...scaled.map(c => c.x));
+    maxY = Math.max(...scaled.map(c => c.y));
+    normCorners = scaled.map(c => ({ x: c.x - minX, y: c.y - minY }));
+    boundsW = maxX - minX;
+    boundsH = maxY - minY;
+    safeBox = {
+      safeMinX: boundsW / 2 - textWidth / 2 - 2,
+      safeMaxX: boundsW / 2 + textWidth / 2 + 2,
+      safeMinY: boundsH / 2 - textHeight / 2 - 2,
+      safeMaxY: boundsH / 2 + textHeight / 2 + 2
+    };
+  }
+
+  const cx = normCorners.reduce((s, c) => s + c.x, 0) / normCorners.length;
+  const cy = normCorners.reduce((s, c) => s + c.y, 0) / normCorners.length;
+  const charSize = Math.min(boundsW, boundsH);
   const path = applyTear(normCorners, tearKey, rng, charSize, safeBox);
 
   return {
