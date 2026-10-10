@@ -92,11 +92,8 @@ function computeLayoutWithFontSize(p) {
     const glyphOx = real.ox;
     const glyphOy = real.oy;
 
-    // Compute rotation early (Pass 3 needs it, and glyphCutout mask needs it)
-    const rotationEarly = posRng.range(-MAX_ROTATION, MAX_ROTATION) * randomFactor * (Math.PI / 180);
-
-    // Generate paper (shape + tear; texture is Layer 3, handled in renderer)
-    const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, posRng, unit.isPunct, unit.text, fontCss, fontSize, strokeWEarly, rotationEarly);
+    // Generate paper (shape + tear; rotation is NOT here—handled in Pass 3)
+    const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, posRng, unit.isPunct, unit.text, fontCss, fontSize, strokeWEarly);
 
     // 每个字独立选一套配色方案（用 seed + index 派生 RNG）
     const drift = (randomAmount / 100) * 0.5;
@@ -105,7 +102,11 @@ function computeLayoutWithFontSize(p) {
       : colorScheme;
     const { fill: fillColor, text: textColor, stroke: strokeColor } = charColorScheme.getColors(posRng, prevColors);
     prevColors = { fill: fillColor, text: textColor, stroke: strokeColor };
-    return { unit, posRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy, strokeW: strokeWEarly, rotation: rotationEarly };
+
+    // 随机纹理索引（和配色一起选）
+    const textureIdx = posRng.int(0, TEXTURES.length - 1);
+
+    return { unit, posRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy, strokeW: strokeWEarly };
   });
 
   // Pass 2: Line wrapping
@@ -150,7 +151,6 @@ function computeLayoutWithFontSize(p) {
     line.forEach((item) => {
       const posRng = item.posRng;
       const isPunct = item.unit.isPunct;
-      const rotation = item.rotation;
 
       // Use stroke computed in Pass 1 (before generatePaper)
       const strokeW = item.strokeW;
@@ -166,6 +166,9 @@ function computeLayoutWithFontSize(p) {
       }
       const floatY = posRng.range(-floatRange, floatRange) * item.textH * randomFactor;
 
+      // 随机旋转（最后一步）
+      const rotation = posRng.range(-MAX_ROTATION, MAX_ROTATION) * randomFactor * (Math.PI / 180);
+
       // Punctuation: paper follows glyph's natural position (offset by ox/oy)
       const posOX = isPunct ? item.glyphOx : 0;
       const posOY = isPunct ? item.glyphOy : 0;
@@ -175,7 +178,7 @@ function computeLayoutWithFontSize(p) {
         fillColor: item.fillColor, textColor: item.textColor, strokeColor: item.strokeColor,
         x: x + item.layoutW / 2 + posOX, y: yPos + floatY + posOY,
         rotation, index: item.index, strokeW, isPunct,
-        textureIdx: posRng.int(0, TEXTURES.length - 1),
+        textureIdx: item.textureIdx,
         glyphOx: item.glyphOx, glyphOy: item.glyphOy
       });
       x += item.layoutW + gap;

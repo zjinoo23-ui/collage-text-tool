@@ -2,15 +2,12 @@
 
 // ── Tunable thresholds (初值，后续可调) ──
 const TH = {
-  tiltDeg: 8,            // |θ| ≥ 此值 → 平行四边形
-  cornerStretchMax: 0.1, // 四角随机拉伸最大幅度（占短边比例）— 旧方案，平行四边形等仍在用
-  glyphCutoutProb: 0.25, // 非倾斜字形中，字形裁剪的概率
-  pentagonProb: 0.15,    // 五边形概率
-  hexagonProb: 0.10,     // 六边形概率（剩余为矩形 0.50）
+  glyphCutoutProb: 0.25,  // 字形裁剪的概率（剩余为矩形 0.75）
   glyphCutoutPad: 0.175,  // 字形裁剪的描边厚度（占字号比例）
-  // ── 矩形纸片：预防式约束模型 ──
+  // ── 矩形纸片：预防式扇形约束模型 ──
   safeMarginRatio: 0.04, // 安全框边距（占字号比例）
   fanRadiusRatio: 0.12,  // 顶点扇形半径（占字号比例）
+  maxRotationDeg: 12,    // 最大旋转角度（用于字形裁剪保守余量计算）
 };
 
 // ── Edge tear styles (参数均为相对字符尺寸比例) ──
@@ -189,156 +186,26 @@ export function classifyShape(glyph, rng, isPunct = false) {
 }
 
 /**
- * Generate base corners, then apply independent random stretch to each corner.
- * 五边形：顶边中间凸起一个角；六边形：顶边和底边各凸起一个角。
- * 矩形：使用预防式扇形约束——顶点在安全框四角的 1/4 圆扇形内随机取点。
+ * Generate corners using the preventive fan constraint model.
+ * 顶点在安全框四角的 1/4 圆扇形内随机取点，纸片天然包住安全框。
+ * 扇形方向朝四角外侧（TL↖ TR↗ BR↘ BL↙）。
  */
-function buildCorners(shapeType, baseW, baseH, glyph, rng, maxSkew = Infinity, fanCorners = null, fanRadius = 0) {
-  // ── 矩形/平行四边形：预防式扇形约束 ──
-  // fanCorners = 安全框四角坐标，顶点在扇形内随机
-  // 扇形方向始终朝四角外侧（TL↖ TR↗ BR↘ BL↙），不随倾斜旋转
-  // 这样保证顶点始终在安全框外侧，纸片天然包住安全框
-  if ((shapeType === 'rect' || shapeType === 'parallelogram') && fanCorners) {
-    const baseFanAngles = [
-      [Math.PI, Math.PI * 1.5],
-      [Math.PI * 1.5, Math.PI * 2],
-      [0, Math.PI * 0.5],
-      [Math.PI * 0.5, Math.PI],
-    ];
-    const corners = fanCorners.slice(0, 4).map((fc, i) => {
-      const angle = rng.range(...baseFanAngles[i]);
-      const mag = rng.range(0, fanRadius);
-      return { x: fc.x + Math.cos(angle) * mag, y: fc.y + Math.sin(angle) * mag };
-    });
-    // normalize to 0,0
-    const minX = Math.min(...corners.map(c => c.x));
-    const minY = Math.min(...corners.map(c => c.y));
-    return corners.map(c => ({ x: c.x - minX, y: c.y - minY }));
-  }
-
-  // Step 1: base shape
-  let corners;
-  let outRanges;
-
-  if (shapeType === 'parallelogram') {
-    const dir = glyph.theta >= 0 ? 1 : -1;
-    const rawSkew = Math.min(baseH * 0.35, Math.abs(glyph.theta) / 15 * baseH * 0.4) * rng.range(0.5, 1.3);
-    const skew = Math.min(rawSkew, maxSkew) * dir;
-    corners = [
-      { x: Math.abs(skew), y: 0 },
-      { x: baseW + skew, y: 0 },
-      { x: baseW - skew, y: baseH },
-      { x: 0, y: baseH },
-    ];
-    outRanges = [
-      [Math.PI, Math.PI * 1.5],     // TL: up-left
-      [Math.PI * 1.5, Math.PI * 2],  // TR: up-right
-      [0, Math.PI * 0.5],           // BR: down-right
-      [Math.PI * 0.5, Math.PI],      // BL: down-left
-    ];
-  } else if (shapeType === 'pentagon') {
-    // 五边形：顶边中间向上凸起一个角
-    const bumpMag = baseH * rng.range(0.08, 0.18);
-    corners = [
-      { x: 0, y: 0 },                  // TL
-      { x: baseW * 0.5, y: -bumpMag }, // top middle（向上凸）
-      { x: baseW, y: 0 },              // TR
-      { x: baseW, y: baseH },          // BR
-      { x: 0, y: baseH },              // BL
-    ];
-    outRanges = [
-      [Math.PI, Math.PI * 1.5],          // TL: up-left
-      [Math.PI * 1.25, Math.PI * 1.75],  // top middle: up
-      [Math.PI * 1.5, Math.PI * 2],      // TR: up-right
-      [0, Math.PI * 0.5],               // BR: down-right
-      [Math.PI * 0.5, Math.PI],          // BL: down-left
-    ];
-  } else if (shapeType === 'hexagon') {
-    // 六边形：顶边和底边各凸起一个角
-    const bumpMagTop = baseH * rng.range(0.08, 0.18);
-    const bumpMagBot = baseH * rng.range(0.08, 0.18);
-    corners = [
-      { x: 0, y: 0 },                          // TL
-      { x: baseW * 0.5, y: -bumpMagTop },     // top middle（向上凸）
-      { x: baseW, y: 0 },                      // TR
-      { x: baseW, y: baseH },                  // BR
-      { x: baseW * 0.5, y: baseH + bumpMagBot }, // bottom middle（向下凸）
-      { x: 0, y: baseH },                      // BL
-    ];
-    outRanges = [
-      [Math.PI, Math.PI * 1.5],          // TL: up-left
-      [Math.PI * 1.25, Math.PI * 1.75],  // top middle: up
-      [Math.PI * 1.5, Math.PI * 2],      // TR: up-right
-      [0, Math.PI * 0.5],               // BR: down-right
-      [Math.PI * 0.25, Math.PI * 0.75],  // bottom middle: down
-      [Math.PI * 0.5, Math.PI],          // BL: down-left
-    ];
-  } else {
-    // rect
-    corners = [
-      { x: 0, y: 0 },
-      { x: baseW, y: 0 },
-      { x: baseW, y: baseH },
-      { x: 0, y: baseH },
-    ];
-    outRanges = [
-      [Math.PI, Math.PI * 1.5],     // TL: up-left
-      [Math.PI * 1.5, Math.PI * 2], // TR: up-right
-      [0, Math.PI * 0.5],           // BR: down-right
-      [Math.PI * 0.5, Math.PI],      // BL: down-left
-    ];
-  }
-
-  // Step 2: each corner stretches outward only (prevents triangles/spikes)
-  const maxStretch = Math.min(baseW, baseH) * TH.cornerStretchMax;
-  corners = corners.map((c, i) => {
-    const [a0, a1] = outRanges[i];
-    const angle = rng.range(a0, a1);
-    const mag = rng.range(0, maxStretch);
-    return { x: c.x + Math.cos(angle) * mag, y: c.y + Math.sin(angle) * mag };
+function buildCorners(fanCorners, fanRadius, rng) {
+  const baseFanAngles = [
+    [Math.PI, Math.PI * 1.5],       // TL: up-left
+    [Math.PI * 1.5, Math.PI * 2],  // TR: up-right
+    [0, Math.PI * 0.5],             // BR: down-right
+    [Math.PI * 0.5, Math.PI],       // BL: down-left
+  ];
+  const corners = fanCorners.slice(0, 4).map((fc, i) => {
+    const angle = rng.range(...baseFanAngles[i]);
+    const mag = rng.range(0, fanRadius);
+    return { x: fc.x + Math.cos(angle) * mag, y: fc.y + Math.sin(angle) * mag };
   });
-
-  // Step 3: normalize to 0,0
+  // normalize to 0,0
   const minX = Math.min(...corners.map(c => c.x));
   const minY = Math.min(...corners.map(c => c.y));
   return corners.map(c => ({ x: c.x - minX, y: c.y - minY }));
-}
-
-/**
- * Check if a point is inside a polygon (ray casting algorithm).
- */
-function isPointInPolygon(px, py, polygon) {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].x, yi = polygon[i].y;
-    const xj = polygon[j].x, yj = polygon[j].y;
-    if (((yi > py) !== (yj > py)) &&
-        (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
-/**
- * Check if the safeBox is fully contained within the polygon.
- * Tests safeBox corners + edge midpoints.
- */
-function safeBoxInPolygon(corners, safeBox) {
-  const pts = [
-    { x: safeBox.safeMinX, y: safeBox.safeMinY },
-    { x: safeBox.safeMaxX, y: safeBox.safeMinY },
-    { x: safeBox.safeMaxX, y: safeBox.safeMaxY },
-    { x: safeBox.safeMinX, y: safeBox.safeMaxY },
-    { x: (safeBox.safeMinX + safeBox.safeMaxX) / 2, y: safeBox.safeMinY },
-    { x: safeBox.safeMaxX, y: (safeBox.safeMinY + safeBox.safeMaxY) / 2 },
-    { x: (safeBox.safeMinX + safeBox.safeMaxX) / 2, y: safeBox.safeMaxY },
-    { x: safeBox.safeMinX, y: (safeBox.safeMinY + safeBox.safeMaxY) / 2 },
-  ];
-  for (const p of pts) {
-    if (!isPointInPolygon(p.x, p.y, corners)) return false;
-  }
-  return true;
 }
 
 /**
@@ -443,25 +310,27 @@ function applyTear(corners, tearKey, rng, charSize, safeBox = null) {
 
 /**
  * Generate a paper: shape from glyph, tear from seed (tearKey), texture handled by renderer.
+ * 旋转不在此阶段处理——由渲染器在 Pass 3 做变换。
  * @param {object} glyph - From analyzeGlyph()
- * @param {string} shapeType - From classifyShape()
+ * @param {string} shapeType - 'rect' | 'glyphCutout'
  * @param {string} tearKey - One of TEAR_STYLE_KEYS (seed-driven)
- * @param {number} textWidth - measured text width
- * @param {number} textHeight - estimated text height
+ * @param {number} textWidth - measured text width (including stroke)
+ * @param {number} textHeight - measured text height (including stroke)
  * @param {object} rng - position rng for corner jitter
  * @param {boolean} isPunct - smaller padding for punctuation
- * @returns {object} { path, bounds:{w,h}, type }
+ * @returns {object} { path, bounds:{w,h}, center, type, tear, textOffset }
  */
-export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, rng, isPunct = false, text = '', fontCss = '', fontSize = 0, strokeW = 0, rotation = 0) {
+export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, rng, isPunct = false, text = '', fontCss = '', fontSize = 0, strokeW = 0) {
   // ── glyphCutout: paper hugs the glyph outline with thick padding ──
+  // 旋转不在此处理，遮罩用固定最大旋转角度(12°)做保守余量
   if (shapeType === 'glyphCutout' && text && fontCss) {
     const pad = fontSize * TH.glyphCutoutPad;
-    // 旋转后边界框 = W*|cos| + H*|sin| (宽), W*|sin| + H*|cos| (高)
-    const absSin = Math.abs(Math.sin(rotation));
-    const absCos = Math.abs(Math.cos(rotation));
+    // 用最大旋转角度算保守边界框，确保遮罩在任何旋转下都覆盖文字
+    const maxRad = TH.maxRotationDeg * Math.PI / 180;
+    const absSin = Math.sin(maxRad);
+    const absCos = Math.cos(maxRad);
     const rotatedW = textWidth * absCos + textHeight * absSin;
     const rotatedH = textWidth * absSin + textHeight * absCos;
-    // maskPad = 渲染器描边的一半 + 安全余量，确保遮罩覆盖渲染后的描边文字
     const maskPad = Math.max(pad, (strokeW || 0) / 2) + 4;
     const extraPad = maskPad + 6;
     const cw = Math.ceil(rotatedW + extraPad * 2);
@@ -473,21 +342,17 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     mctx.font = fontCss;
     mctx.textAlign = 'center';
     mctx.textBaseline = 'middle';
-    // 先用渲染器相同的描边画一遍，再用更粗的描边覆盖外缘
     mctx.lineJoin = 'round';
     mctx.lineCap = 'round';
     mctx.miterLimit = 2;
     mctx.strokeStyle = '#000';
     mctx.fillStyle = '#000';
-    // 1) 渲染器描边（完全一致，包括 lineJoin/miterLimit）
     if (strokeW > 0) {
       mctx.lineWidth = strokeW;
       mctx.strokeText(text, cw / 2, ch / 2);
     }
-    // 2) 更粗的描边覆盖外缘（maskPad*2 > strokeW）
     mctx.lineWidth = maskPad * 2;
     mctx.strokeText(text, cw / 2, ch / 2);
-    // 3) 填充内部
     mctx.fillText(text, cw / 2, ch / 2);
     return {
       path: null,
@@ -500,103 +365,26 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     };
   }
 
-  // ── Standard shapes (rect / parallelogram / pentagon / hexagon) ──
-  // 矩形+平行四边形：预防式扇形约束模型
-  // 五边形/六边形：旧模型（后续再迁移到扇形方案）
-  if ((shapeType === 'rect' || shapeType === 'parallelogram') && fontSize > 0) {
-    // safeMargin = 基础边距 + 描边补偿 + 平行四边形倾斜补偿
-    // measureRealBounds 已含描边，但 shear 安全框在水平笔画端处可能更窄
-    const strokePad = strokeW > 0 ? 2 : 0;
-    let safeMargin = fontSize * TH.safeMarginRatio + strokePad;
-    if (shapeType === 'parallelogram') {
-      // shear 使安全框顶部/底部水平偏移 textHeight/2 * |tan(theta)|
-      // 水平笔画端在偏移方向上需要更多空间
-      const thetaRad = glyph.theta * Math.PI / 180;
-      safeMargin += Math.abs(Math.tan(thetaRad)) * textHeight / 2;
-    }
-    const fanR = fontSize * TH.fanRadiusRatio;
+  // ── 矩形：预防式扇形约束模型 ──
+  // ① 文本框 → ② 安全框 → ③ 扇形(安全框四角) → ④ 顶点在扇形内随机 → 纸片
+  const strokePad = strokeW > 0 ? 2 : 0;
+  const safeMargin = fontSize * TH.safeMarginRatio + strokePad;
+  const fanR = fontSize * TH.fanRadiusRatio;
 
-    // 描边后的文本框尺寸（用于安全框计算）
-    const sw = textWidth + strokePad * 2;
-    const sh = textHeight + strokePad * 2;
+  // 描边后的文本框尺寸（用于安全框计算）
+  const sw = textWidth + strokePad * 2;
+  const sh = textHeight + strokePad * 2;
 
-    // 安全框四角（以描边后文本框左上角为原点）
-    const safeTL = { x: -safeMargin, y: -safeMargin };
-    const safeTR = { x: sw + safeMargin, y: -safeMargin };
-    const safeBR = { x: sw + safeMargin, y: sh + safeMargin };
-    const safeBL = { x: -safeMargin, y: sh + safeMargin };
+  // 安全框四角（以描边后文本框左上角为原点）
+  const fanCorners = [
+    { x: -safeMargin, y: -safeMargin },           // TL
+    { x: sw + safeMargin, y: -safeMargin },       // TR
+    { x: sw + safeMargin, y: sh + safeMargin },   // BR
+    { x: -safeMargin, y: sh + safeMargin },       // BL
+  ];
 
-    let fanCorners;
-    if (shapeType === 'parallelogram') {
-      // 平行四边形：安全框四角按字形倾斜做 shear 变换
-      // shear: x' = x + (y - textHeight/2) * tan(theta)
-      const thetaRad = glyph.theta * Math.PI / 180;
-      const tanTheta = Math.tan(thetaRad);
-      const shear = (y) => (y - textHeight / 2) * tanTheta;
-      const sTL = { x: safeTL.x + shear(safeTL.y), y: safeTL.y };
-      const sTR = { x: safeTR.x + shear(safeTR.y), y: safeTR.y };
-      const sBR = { x: safeBR.x + shear(safeBR.y), y: safeBR.y };
-      const sBL = { x: safeBL.x + shear(safeBL.y), y: safeBL.y };
-      fanCorners = [sTL, sTR, sBR, sBL];
-    } else {
-      fanCorners = [safeTL, safeTR, safeBR, safeBL];
-    }
+  const corners = buildCorners(fanCorners, fanR, rng);
 
-    const baseW = textWidth + safeMargin * 2 + fanR * 2;
-    const baseH = textHeight + safeMargin * 2 + fanR * 2;
-    const corners = buildCorners(shapeType, baseW, baseH, glyph, rng, Infinity, fanCorners, fanR);
-
-    let minX = Math.min(...corners.map(c => c.x));
-    let minY = Math.min(...corners.map(c => c.y));
-    let maxX = Math.max(...corners.map(c => c.x));
-    let maxY = Math.max(...corners.map(c => c.y));
-    let normCorners = corners.map(c => ({ x: c.x - minX, y: c.y - minY }));
-    let boundsW = maxX - minX;
-    let boundsH = maxY - minY;
-
-    // 安全框（用于撕裂约束）：文本以质心为中心，safeBox = 文本框 + safeMargin
-    const cx = normCorners.reduce((s, c) => s + c.x, 0) / normCorners.length;
-    const cy = normCorners.reduce((s, c) => s + c.y, 0) / normCorners.length;
-    let safeBox = {
-      safeMinX: cx - sw / 2 - safeMargin,
-      safeMaxX: cx + sw / 2 + safeMargin,
-      safeMinY: cy - sh / 2 - safeMargin,
-      safeMaxY: cy + sh / 2 + safeMargin
-    };
-
-
-    const charSize = Math.min(boundsW, boundsH);
-    const path = applyTear(normCorners, tearKey, rng, charSize, safeBox);
-
-    return {
-      path,
-      bounds: { w: boundsW, h: boundsH },
-      center: { x: cx, y: cy },
-      type: shapeType,
-      tear: tearKey,
-      textOffset: { x: cx - textWidth / 2, y: cy - textHeight / 2 }
-    };
-  }
-
-  // ── 旧模型：五边形 / 六边形 / 标点 ──
-  let padX, padY, shapeSafety;
-  if (isPunct) {
-    // Punctuation: slightly larger paper relative to glyph
-    padX = textWidth * 0.20 + textHeight * 0.12;
-    padY = textHeight * 0.20;
-    shapeSafety = textHeight * 0.15;
-  } else {
-    padX = textWidth * 0.08 + textHeight * 0.08;
-    padY = textHeight * 0.10;
-    const isShaped = (shapeType === 'parallelogram');
-    shapeSafety = isShaped ? textWidth * 0.15 + textHeight * 0.10 : textHeight * 0.075;
-  }
-  const baseW = textWidth + padX * 2 + shapeSafety;
-  const baseH = textHeight + padY * 2 + shapeSafety * 0.5;
-
-  // 平行四边形斜边不切入 safeBox 的最大 skew：可用水平内边距的 75%
-  const maxSkew = (2 * padX + shapeSafety - 4) * 0.75;
-  const corners = buildCorners(shapeType, baseW, baseH, glyph, rng, maxSkew);
   let minX = Math.min(...corners.map(c => c.x));
   let minY = Math.min(...corners.map(c => c.y));
   let maxX = Math.max(...corners.map(c => c.x));
@@ -605,40 +393,16 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
   let boundsW = maxX - minX;
   let boundsH = maxY - minY;
 
-  // 文字安全框：文字居中在 bounds 内，加 5px 余量（含描边宽度）
-  let safeBox = {
-    safeMinX: boundsW / 2 - textWidth / 2 - 5,
-    safeMaxX: boundsW / 2 + textWidth / 2 + 5,
-    safeMinY: boundsH / 2 - textHeight / 2 - 5,
-    safeMaxY: boundsH / 2 + textHeight / 2 + 5
-  };
-
-  // 安全网：skew 上限已确保平行四边形包含 safeBox
-  // 若角点拉伸的极端随机导致 safeBox 超出（罕见），单次小幅外扩 1.12x
-  if (!safeBoxInPolygon(normCorners, safeBox)) {
-    const scx = boundsW / 2;
-    const scy = boundsH / 2;
-    const scaled = normCorners.map(c => ({
-      x: scx + (c.x - scx) * 1.15,
-      y: scy + (c.y - scy) * 1.15
-    }));
-    minX = Math.min(...scaled.map(c => c.x));
-    minY = Math.min(...scaled.map(c => c.y));
-    maxX = Math.max(...scaled.map(c => c.x));
-    maxY = Math.max(...scaled.map(c => c.y));
-    normCorners = scaled.map(c => ({ x: c.x - minX, y: c.y - minY }));
-    boundsW = maxX - minX;
-    boundsH = maxY - minY;
-    safeBox = {
-      safeMinX: boundsW / 2 - textWidth / 2 - 5,
-      safeMaxX: boundsW / 2 + textWidth / 2 + 5,
-      safeMinY: boundsH / 2 - textHeight / 2 - 5,
-      safeMaxY: boundsH / 2 + textHeight / 2 + 5
-    };
-  }
-
+  // 安全框（用于撕裂约束）：文本以质心为中心，safeBox = 文本框 + safeMargin
   const cx = normCorners.reduce((s, c) => s + c.x, 0) / normCorners.length;
   const cy = normCorners.reduce((s, c) => s + c.y, 0) / normCorners.length;
+  const safeBox = {
+    safeMinX: cx - sw / 2 - safeMargin,
+    safeMaxX: cx + sw / 2 + safeMargin,
+    safeMinY: cy - sh / 2 - safeMargin,
+    safeMaxY: cy + sh / 2 + safeMargin
+  };
+
   const charSize = Math.min(boundsW, boundsH);
   const path = applyTear(normCorners, tearKey, rng, charSize, safeBox);
 
@@ -646,9 +410,9 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     path,
     bounds: { w: boundsW, h: boundsH },
     center: { x: cx, y: cy },
-    type: shapeType,
+    type: 'rect',
     tear: tearKey,
-    textOffset: { x: (boundsW - textWidth) / 2, y: (boundsH - textHeight) / 2 }
+    textOffset: { x: cx - textWidth / 2, y: cy - textHeight / 2 }
   };
 }
 
@@ -659,15 +423,9 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
 export function pickTearStyle(rng, shapeType) {
   if (shapeType === 'glyphCutout') return 'straight';
   const roll = rng.range(0, 1);
-  if (shapeType === 'rect' || shapeType === 'pentagon' || shapeType === 'hexagon') {
-    if (roll < 0.15) return 'straight';
-    if (roll < 0.45) return 'fine';
-    if (roll < 0.80) return 'rough';
-    return 'wavy';
-  }
-  // parallelogram: less straight
-  if (roll < 0.08) return 'straight';
-  if (roll < 0.30) return 'fine';
-  if (roll < 0.75) return 'rough';
+  // rect: balanced distribution
+  if (roll < 0.15) return 'straight';
+  if (roll < 0.45) return 'fine';
+  if (roll < 0.80) return 'rough';
   return 'wavy';
 }
