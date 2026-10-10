@@ -47,7 +47,7 @@ export function waitForFonts() {
   if (typeof document !== 'undefined' && document.fonts) {
     return Promise.race([
       document.fonts.ready.then(() => { fontsReady = true; }),
-      new Promise(resolve => setTimeout(resolve, 2000))
+      new Promise(resolve => setTimeout(resolve, 10000))
     ]);
   }
   return Promise.resolve();

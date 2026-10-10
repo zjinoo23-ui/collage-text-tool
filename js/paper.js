@@ -326,8 +326,8 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
   // bounds 用 mask 实际非透明像素边界，不用整个画布尺寸
   if (shapeType === 'glyphCutout' && text && fontCss) {
     const pad = fontSize * TH.glyphCutoutPad;
-    const maskPad = Math.max(pad, (strokeW || 0) / 2) + 2;
-    const extraPad = maskPad + 4;
+    const maskPad = Math.max(pad, (strokeW || 0) / 2) + 3;
+    const extraPad = maskPad + 8;
     const cw = Math.ceil(textWidth + extraPad * 2);
     const ch = Math.ceil(textHeight + extraPad * 2);
     const mask = document.createElement('canvas');
@@ -363,11 +363,11 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
         }
       }
     }
-    // 四周各加 1px 安全余量
-    minX = Math.max(0, minX - 1);
-    minY = Math.max(0, minY - 1);
-    maxX = Math.min(cw - 1, maxX + 1);
-    maxY = Math.min(ch - 1, maxY + 1);
+    // 四周各加 3px 安全余量
+    minX = Math.max(0, minX - 3);
+    minY = Math.max(0, minY - 3);
+    maxX = Math.min(cw - 1, maxX + 3);
+    maxY = Math.min(ch - 1, maxY + 3);
     const boundsW = maxX - minX + 1;
     const boundsH = maxY - minY + 1;
 
