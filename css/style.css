@@ -13,7 +13,7 @@
   --border: #e0e0e0;
   --bg: #ffffff;
   --bg-secondary: #f7f7f7;
-  --font-sans: 'Noto Sans SC', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
 }
 
 html {

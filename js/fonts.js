@@ -1,6 +1,5 @@
 // fonts.js - Font management (simplified: just list font filenames)
-// Local TTF: put .ttf in assets/fonts/, add filename to LOCAL_FONTS below.
-// Google Fonts are kept as base; local fonts extend the pool.
+// Local TTF: put .ttf/.otf in assets/fonts/, add filename to LOCAL_FONTS below.
 
 const LOCAL_FONTS = [
   'SmileySans-Oblique-2.ttf',
@@ -9,15 +8,6 @@ const LOCAL_FONTS = [
   'ZhengQingKeHuangYouTi-1.ttf',
   'ZhuoTeZiYouTi-2.otf',
   'ZiKuJiangHuGuFengTi-2.ttf',
-];
-
-const GOOGLE_FONTS = [
-  { family: 'Noto Sans SC', weight: 400 },
-  { family: 'Noto Sans SC', weight: 700 },
-  { family: 'Noto Sans', weight: 400 },
-  { family: 'Noto Sans', weight: 700 },
-  { family: 'serif', weight: 400 },
-  { family: 'serif', weight: 700 },
 ];
 
 const CJK_FALLBACK = '"Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif';
