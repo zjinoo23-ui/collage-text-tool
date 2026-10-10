@@ -3,11 +3,14 @@
 // ── Tunable thresholds (初值，后续可调) ──
 const TH = {
   tiltDeg: 8,            // |θ| ≥ 此值 → 平行四边形
-  cornerStretchMax: 0.1, // 四角随机拉伸最大幅度（占短边比例）
+  cornerStretchMax: 0.1, // 四角随机拉伸最大幅度（占短边比例）— 旧方案，平行四边形等仍在用
   glyphCutoutProb: 0.25, // 非倾斜字形中，字形裁剪的概率
   pentagonProb: 0.15,    // 五边形概率
   hexagonProb: 0.10,     // 六边形概率（剩余为矩形 0.50）
   glyphCutoutPad: 0.35,   // 字形裁剪的描边厚度（占字号比例）
+  // ── 矩形纸片：预防式约束模型 ──
+  safeMarginRatio: 0.04, // 安全框边距（占字号比例）
+  fanRadiusRatio: 0.12,  // 顶点扇形半径（占字号比例）
 };
 
 // ── Edge tear styles (参数均为相对字符尺寸比例) ──
@@ -179,8 +182,30 @@ export function classifyShape(glyph, rng, isPunct = false) {
 /**
  * Generate base corners, then apply independent random stretch to each corner.
  * 五边形：顶边中间凸起一个角；六边形：顶边和底边各凸起一个角。
+ * 矩形：使用预防式扇形约束——顶点在安全框四角的 1/4 圆扇形内随机取点。
  */
-function buildCorners(shapeType, baseW, baseH, glyph, rng, maxSkew = Infinity) {
+function buildCorners(shapeType, baseW, baseH, glyph, rng, maxSkew = Infinity, fanCorners = null, fanRadius = 0) {
+  // ── 矩形：预防式扇形约束 ──
+  // fanCorners = 安全框四角坐标（在 baseW×baseH 坐标系中），顶点在扇形内随机
+  if (shapeType === 'rect' && fanCorners) {
+    // 扇形方向：TL→左上(π~1.5π), TR→右上(1.5π~2π), BR→右下(0~0.5π), BL→左下(0.5π~π)
+    const fanAngles = [
+      [Math.PI, Math.PI * 1.5],     // TL
+      [Math.PI * 1.5, Math.PI * 2], // TR
+      [0, Math.PI * 0.5],           // BR
+      [Math.PI * 0.5, Math.PI],     // BL
+    ];
+    const corners = fanCorners.map((fc, i) => {
+      const angle = rng.range(...fanAngles[i]);
+      const mag = rng.range(0, fanRadius);
+      return { x: fc.x + Math.cos(angle) * mag, y: fc.y + Math.sin(angle) * mag };
+    });
+    // normalize to 0,0
+    const minX = Math.min(...corners.map(c => c.x));
+    const minY = Math.min(...corners.map(c => c.y));
+    return corners.map(c => ({ x: c.x - minX, y: c.y - minY }));
+  }
+
   // Step 1: base shape
   let corners;
   let outRanges;
@@ -449,6 +474,58 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
   }
 
   // ── Standard shapes (rect / parallelogram / pentagon / hexagon) ──
+  // 矩形：预防式扇形约束模型
+  // 平行四边形/五边形/六边形：旧模型（后续再迁移到扇形方案）
+  if (shapeType === 'rect' && fontSize > 0) {
+    // 安全框 = 文本框 + 边距（字号比例）
+    const safeMargin = fontSize * TH.safeMarginRatio;
+    // 扇形半径（字号比例）
+    const fanR = fontSize * TH.fanRadiusRatio;
+
+    // 安全框四角（以文本框左上角为原点）
+    const safeTL = { x: -safeMargin, y: -safeMargin };
+    const safeTR = { x: textWidth + safeMargin, y: -safeMargin };
+    const safeBR = { x: textWidth + safeMargin, y: textHeight + safeMargin };
+    const safeBL = { x: -safeMargin, y: textHeight + safeMargin };
+    const fanCorners = [safeTL, safeTR, safeBR, safeBL];
+
+    // baseW/baseH 仅给 buildCorners 做坐标参考，实际用 fanCorners
+    const baseW = textWidth + safeMargin * 2 + fanR * 2;
+    const baseH = textHeight + safeMargin * 2 + fanR * 2;
+    const corners = buildCorners(shapeType, baseW, baseH, glyph, rng, Infinity, fanCorners, fanR);
+
+    let minX = Math.min(...corners.map(c => c.x));
+    let minY = Math.min(...corners.map(c => c.y));
+    let maxX = Math.max(...corners.map(c => c.x));
+    let maxY = Math.max(...corners.map(c => c.y));
+    let normCorners = corners.map(c => ({ x: c.x - minX, y: c.y - minY }));
+    let boundsW = maxX - minX;
+    let boundsH = maxY - minY;
+
+    // 安全框（用于撕裂约束）：文本框在 bounds 内居中 + 边距
+    let safeBox = {
+      safeMinX: boundsW / 2 - textWidth / 2 - safeMargin,
+      safeMaxX: boundsW / 2 + textWidth / 2 + safeMargin,
+      safeMinY: boundsH / 2 - textHeight / 2 - safeMargin,
+      safeMaxY: boundsH / 2 + textHeight / 2 + safeMargin
+    };
+
+    const cx = normCorners.reduce((s, c) => s + c.x, 0) / normCorners.length;
+    const cy = normCorners.reduce((s, c) => s + c.y, 0) / normCorners.length;
+    const charSize = Math.min(boundsW, boundsH);
+    const path = applyTear(normCorners, tearKey, rng, charSize, safeBox);
+
+    return {
+      path,
+      bounds: { w: boundsW, h: boundsH },
+      center: { x: cx, y: cy },
+      type: shapeType,
+      tear: tearKey,
+      textOffset: { x: (boundsW - textWidth) / 2, y: (boundsH - textHeight) / 2 }
+    };
+  }
+
+  // ── 旧模型：平行四边形 / 五边形 / 六边形 / 标点 ──
   let padX, padY, shapeSafety;
   if (isPunct) {
     // Punctuation: slightly larger paper relative to glyph
