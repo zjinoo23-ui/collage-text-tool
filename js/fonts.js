@@ -20,13 +20,19 @@ for (const file of LOCAL_FONTS) {
   FONTS.push({ family: name, weight: 400, src: `assets/fonts/${file}`, format: ext === 'otf' ? 'opentype' : 'truetype' });
 }
 
-// Inject @font-face for local fonts
+// Inject @font-face for local fonts + block unwanted Google Fonts
 (function injectLocalFonts() {
   const style = document.createElement('style');
   let css = '';
+  // 1. Block Google Fonts that might be cached from earlier
+  const BLOCKED_FONTS = ['Noto Sans SC', 'Noto Sans'];
+  for (const name of BLOCKED_FONTS) {
+    css += `@font-face { font-family: '${name}'; font-display: none; src: none !important; }\n`;
+  }
+  // 2. Local fonts
   for (const f of FONTS) {
     if (f.src) {
-      css += `@font-face { font-family: '${f.family}'; font-weight: ${f.weight}; src: url('${f.src}') format('${f.format}'); }\n`;
+      css += `@font-face { font-family: '${f.family}'; font-weight: ${f.weight}; font-display: swap; src: url('${f.src}') format('${f.format}'); }\n`;
     }
   }
   if (css) { style.textContent = css; document.head.appendChild(style); }
