@@ -77,19 +77,23 @@ function computeLayoutWithFontSize(p) {
     const glyph = analyzeGlyph(unit.text, fontCss);
     const shapeType = classifyShape(glyph, posRng, unit.isPunct);
 
-    // Unified measurement: measure ALL chars at actual fontSize
-    // This gives consistent w/h/ox/oy matching the renderer exactly
-    const real = measureRealBounds(unit.text, fontCss, fontSize);
+    // Layer 2: pick tear style (seed-driven, weakly correlated with shape)
+    const tearKey = pickTearStyle(posRng, shapeType);
+
+    // Random stroke: ~45% chance, thickness 0.08~0.22 * fontSize
+    // Must be computed BEFORE measureRealBounds so bounds include stroke
+    const hasStrokeEarly = posRng.chance(0.45);
+    const strokeWEarly = hasStrokeEarly ? posRng.range(0.08, 0.22) * fontSize : 0;
+
+    // Measure real bounds INCLUDING stroke, so safeBox accounts for stroked glyph
+    const real = measureRealBounds(unit.text, fontCss, fontSize, strokeWEarly);
     const textW = real.w;
     const textH = real.h;
     const glyphOx = real.ox;
     const glyphOy = real.oy;
 
-    // Layer 2: pick tear style (seed-driven, weakly correlated with shape)
-    const tearKey = pickTearStyle(posRng, shapeType);
-
     // Generate paper (shape + tear; texture is Layer 3, handled in renderer)
-    const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, posRng, unit.isPunct, unit.text, fontCss, fontSize);
+    const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, posRng, unit.isPunct, unit.text, fontCss, fontSize, strokeWEarly);
 
     // 每个字独立选一套配色方案（用 seed + index 派生 RNG）
     const drift = (randomAmount / 100) * 0.5;
@@ -98,7 +102,7 @@ function computeLayoutWithFontSize(p) {
       : colorScheme;
     const { fill: fillColor, text: textColor, stroke: strokeColor } = charColorScheme.getColors(posRng, prevColors);
     prevColors = { fill: fillColor, text: textColor, stroke: strokeColor };
-    return { unit, posRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy };
+    return { unit, posRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy, strokeW: strokeWEarly };
   });
 
   // Pass 2: Line wrapping
@@ -145,9 +149,8 @@ function computeLayoutWithFontSize(p) {
       const isPunct = item.unit.isPunct;
       const rotation = posRng.range(-MAX_ROTATION, MAX_ROTATION) * randomFactor * (Math.PI / 180);
 
-      // Random stroke: ~45% chance, thickness 0.22~0.8 * fontSize
-      const hasStroke = posRng.chance(0.45);
-      const strokeW = hasStroke ? posRng.range(0.08, 0.22) * item.fontSize : 0;
+      // Use stroke computed in Pass 1 (before generatePaper)
+      const strokeW = item.strokeW;
 
       // Punctuation: smaller float, near line center
       let yPos, floatRange;

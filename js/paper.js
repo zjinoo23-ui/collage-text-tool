@@ -130,7 +130,7 @@ function getMeasCanvas() {
  * Measure real pixel bounds of text rendered at actual fontSize.
  * Returns { w, h, ox, oy } where ox/oy is glyph center offset from draw center.
  */
-export function measureRealBounds(text, fontCss, fontSize) {
+export function measureRealBounds(text, fontCss, fontSize, strokeW = 0) {
   const canvas = getMeasCanvas();
   const size = Math.ceil(fontSize * 3);
   canvas.width = size;
@@ -141,6 +141,14 @@ export function measureRealBounds(text, fontCss, fontSize) {
   ctx.fillStyle = '#000';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.miterLimit = 2;
+  if (strokeW > 0) {
+    ctx.lineWidth = strokeW;
+    ctx.strokeStyle = '#000';
+    ctx.strokeText(text, size / 2, size / 2);
+  }
   ctx.fillText(text, size / 2, size / 2);
   const data = ctx.getImageData(0, 0, size, size).data;
   let minX = size, minY = size, maxX = 0, maxY = 0;
@@ -185,18 +193,19 @@ export function classifyShape(glyph, rng, isPunct = false) {
  * 矩形：使用预防式扇形约束——顶点在安全框四角的 1/4 圆扇形内随机取点。
  */
 function buildCorners(shapeType, baseW, baseH, glyph, rng, maxSkew = Infinity, fanCorners = null, fanRadius = 0) {
-  // ── 矩形：预防式扇形约束 ──
-  // fanCorners = 安全框四角坐标（在 baseW×baseH 坐标系中），顶点在扇形内随机
-  if (shapeType === 'rect' && fanCorners) {
-    // 扇形方向：TL→左上(π~1.5π), TR→右上(1.5π~2π), BR→右下(0~0.5π), BL→左下(0.5π~π)
-    const fanAngles = [
-      [Math.PI, Math.PI * 1.5],     // TL
-      [Math.PI * 1.5, Math.PI * 2], // TR
-      [0, Math.PI * 0.5],           // BR
-      [Math.PI * 0.5, Math.PI],     // BL
+  // ── 矩形/平行四边形：预防式扇形约束 ──
+  // fanCorners = 安全框四角坐标，顶点在扇形内随机
+  // 扇形方向始终朝四角外侧（TL↖ TR↗ BR↘ BL↙），不随倾斜旋转
+  // 这样保证顶点始终在安全框外侧，纸片天然包住安全框
+  if ((shapeType === 'rect' || shapeType === 'parallelogram') && fanCorners) {
+    const baseFanAngles = [
+      [Math.PI, Math.PI * 1.5],
+      [Math.PI * 1.5, Math.PI * 2],
+      [0, Math.PI * 0.5],
+      [Math.PI * 0.5, Math.PI],
     ];
-    const corners = fanCorners.map((fc, i) => {
-      const angle = rng.range(...fanAngles[i]);
+    const corners = fanCorners.slice(0, 4).map((fc, i) => {
+      const angle = rng.range(...baseFanAngles[i]);
       const mag = rng.range(0, fanRadius);
       return { x: fc.x + Math.cos(angle) * mag, y: fc.y + Math.sin(angle) * mag };
     });
@@ -442,7 +451,7 @@ function applyTear(corners, tearKey, rng, charSize, safeBox = null) {
  * @param {boolean} isPunct - smaller padding for punctuation
  * @returns {object} { path, bounds:{w,h}, type }
  */
-export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, rng, isPunct = false, text = '', fontCss = '', fontSize = 0) {
+export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, rng, isPunct = false, text = '', fontCss = '', fontSize = 0, strokeW = 0) {
   // ── glyphCutout: paper hugs the glyph outline with thick padding ──
   if (shapeType === 'glyphCutout' && text && fontCss) {
     const pad = fontSize * TH.glyphCutoutPad;
@@ -474,22 +483,47 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
   }
 
   // ── Standard shapes (rect / parallelogram / pentagon / hexagon) ──
-  // 矩形：预防式扇形约束模型
-  // 平行四边形/五边形/六边形：旧模型（后续再迁移到扇形方案）
-  if (shapeType === 'rect' && fontSize > 0) {
-    // 安全框 = 文本框 + 边距（字号比例）
-    const safeMargin = fontSize * TH.safeMarginRatio;
-    // 扇形半径（字号比例）
+  // 矩形+平行四边形：预防式扇形约束模型
+  // 五边形/六边形：旧模型（后续再迁移到扇形方案）
+  if ((shapeType === 'rect' || shapeType === 'parallelogram') && fontSize > 0) {
+    // safeMargin = 基础边距 + 描边补偿 + 平行四边形倾斜补偿
+    // measureRealBounds 已含描边，但 shear 安全框在水平笔画端处可能更窄
+    const strokePad = strokeW > 0 ? 2 : 0;
+    let safeMargin = fontSize * TH.safeMarginRatio + strokePad;
+    if (shapeType === 'parallelogram') {
+      // shear 使安全框顶部/底部水平偏移 textHeight/2 * |tan(theta)|
+      // 水平笔画端在偏移方向上需要更多空间
+      const thetaRad = glyph.theta * Math.PI / 180;
+      safeMargin += Math.abs(Math.tan(thetaRad)) * textHeight / 2;
+    }
     const fanR = fontSize * TH.fanRadiusRatio;
 
-    // 安全框四角（以文本框左上角为原点）
-    const safeTL = { x: -safeMargin, y: -safeMargin };
-    const safeTR = { x: textWidth + safeMargin, y: -safeMargin };
-    const safeBR = { x: textWidth + safeMargin, y: textHeight + safeMargin };
-    const safeBL = { x: -safeMargin, y: textHeight + safeMargin };
-    const fanCorners = [safeTL, safeTR, safeBR, safeBL];
+    // 描边后的文本框尺寸（用于安全框计算）
+    const sw = textWidth + strokePad * 2;
+    const sh = textHeight + strokePad * 2;
 
-    // baseW/baseH 仅给 buildCorners 做坐标参考，实际用 fanCorners
+    // 安全框四角（以描边后文本框左上角为原点）
+    const safeTL = { x: -safeMargin, y: -safeMargin };
+    const safeTR = { x: sw + safeMargin, y: -safeMargin };
+    const safeBR = { x: sw + safeMargin, y: sh + safeMargin };
+    const safeBL = { x: -safeMargin, y: sh + safeMargin };
+
+    let fanCorners;
+    if (shapeType === 'parallelogram') {
+      // 平行四边形：安全框四角按字形倾斜做 shear 变换
+      // shear: x' = x + (y - textHeight/2) * tan(theta)
+      const thetaRad = glyph.theta * Math.PI / 180;
+      const tanTheta = Math.tan(thetaRad);
+      const shear = (y) => (y - textHeight / 2) * tanTheta;
+      const sTL = { x: safeTL.x + shear(safeTL.y), y: safeTL.y };
+      const sTR = { x: safeTR.x + shear(safeTR.y), y: safeTR.y };
+      const sBR = { x: safeBR.x + shear(safeBR.y), y: safeBR.y };
+      const sBL = { x: safeBL.x + shear(safeBL.y), y: safeBL.y };
+      fanCorners = [sTL, sTR, sBR, sBL];
+    } else {
+      fanCorners = [safeTL, safeTR, safeBR, safeBL];
+    }
+
     const baseW = textWidth + safeMargin * 2 + fanR * 2;
     const baseH = textHeight + safeMargin * 2 + fanR * 2;
     const corners = buildCorners(shapeType, baseW, baseH, glyph, rng, Infinity, fanCorners, fanR);
@@ -502,16 +536,19 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     let boundsW = maxX - minX;
     let boundsH = maxY - minY;
 
-    // 安全框（用于撕裂约束）：文本框在 bounds 内居中 + 边距
-    let safeBox = {
-      safeMinX: boundsW / 2 - textWidth / 2 - safeMargin,
-      safeMaxX: boundsW / 2 + textWidth / 2 + safeMargin,
-      safeMinY: boundsH / 2 - textHeight / 2 - safeMargin,
-      safeMaxY: boundsH / 2 + textHeight / 2 + safeMargin
-    };
-
+    // 安全框（用于撕裂约束）：描边后文本框以 paper 质心为中心 + 边距
+    // 平行四边形的安全框仍是轴对齐（与 applyTear 兼容）
+    // cx/cy 是归一化后的质心，文本以此为基准
     const cx = normCorners.reduce((s, c) => s + c.x, 0) / normCorners.length;
     const cy = normCorners.reduce((s, c) => s + c.y, 0) / normCorners.length;
+    let safeBox = {
+      safeMinX: cx - sw / 2 - safeMargin,
+      safeMaxX: cx + sw / 2 + safeMargin,
+      safeMinY: cy - sh / 2 - safeMargin,
+      safeMaxY: cy + sh / 2 + safeMargin
+    };
+
+
     const charSize = Math.min(boundsW, boundsH);
     const path = applyTear(normCorners, tearKey, rng, charSize, safeBox);
 
@@ -521,11 +558,11 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
       center: { x: cx, y: cy },
       type: shapeType,
       tear: tearKey,
-      textOffset: { x: (boundsW - textWidth) / 2, y: (boundsH - textHeight) / 2 }
+      textOffset: { x: cx - textWidth / 2, y: cy - textHeight / 2 }
     };
   }
 
-  // ── 旧模型：平行四边形 / 五边形 / 六边形 / 标点 ──
+  // ── 旧模型：五边形 / 六边形 / 标点 ──
   let padX, padY, shapeSafety;
   if (isPunct) {
     // Punctuation: slightly larger paper relative to glyph
