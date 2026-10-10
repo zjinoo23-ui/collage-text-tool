@@ -134,10 +134,9 @@ export function renderToCanvas(params, canvas) {
     ctx.font = el.fontCss;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // Use shape geometric center, adjusted by glyph's actual offset from em-box center
-    // glyphCutout already centers text in mask, so skip ox/oy offset
-    const baseX = el.paper.center ? el.paper.center.x : el.paper.bounds.w / 2;
-    const baseY = el.paper.center ? el.paper.center.y : el.paper.bounds.h / 2;
+    // 用 bounds 中心定位文字，与 safeBox 计算一致
+    const baseX = el.paper.bounds.w / 2;
+    const baseY = el.paper.bounds.h / 2;
     const isGlyphCutout = el.paper.type === 'glyphCutout';
     // Only glyphCutout skips offset (text pre-centered in mask).
     // All others (including punctuation) subtract ox/oy to center glyph in paper.

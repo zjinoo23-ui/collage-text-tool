@@ -271,9 +271,37 @@ function buildCorners(shapeType, baseW, baseH, glyph, rng) {
 /**
  * Apply edge tear style to corners, producing a Path2D.
  */
-function applyTear(corners, tearKey, rng, charSize) {
+function applyTear(corners, tearKey, rng, charSize, safeBox = null) {
   const style = TEAR_STYLES[tearKey] || TEAR_STYLES.straight;
   const path = new Path2D();
+
+  // 安全框约束：沿法线方向限制向内的撕裂偏移
+  // 不区分斜边/直边，统一沿边的法线方向计算到 safeBox 的剩余空间
+  const inwardSpace = (bx, by, nx, ny) => {
+    if (!safeBox) return Infinity;
+    let t = Infinity;
+    if (nx > 1e-6) t = Math.min(t, (safeBox.safeMaxX - bx) / nx);
+    if (nx < -1e-6) t = Math.min(t, (safeBox.safeMinX - bx) / nx);
+    if (ny > 1e-6) t = Math.min(t, (safeBox.safeMaxY - by) / ny);
+    if (ny < -1e-6) t = Math.min(t, (safeBox.safeMinY - by) / ny);
+    return t;
+  };
+  const tearPoint = (bx, by, nx, ny, offset) => {
+    if (!safeBox) return { x: bx + nx * offset, y: by + ny * offset };
+    const space = inwardSpace(bx, by, nx, ny);
+    const safety = 2;
+    if (offset <= 0) return { x: bx + nx * offset, y: by + ny * offset };
+    const maxInward = Math.max(0, space - safety);
+    const falloff = Math.max(2, charSize * 0.03);
+    let finalOffset;
+    if (maxInward <= 0) finalOffset = 0;
+    else if (offset <= maxInward - falloff) finalOffset = offset;
+    else {
+      const k = Math.min(1, (offset - (maxInward - falloff)) / falloff);
+      finalOffset = maxInward - falloff * k * k;
+    }
+    return { x: bx + nx * finalOffset, y: by + ny * finalOffset };
+  };
 
   if (style.type === 'straight') {
     path.moveTo(corners[0].x, corners[0].y);
@@ -306,7 +334,7 @@ function applyTear(corners, tearKey, rng, charSize) {
         const by = from.y + dy * t;
         const phase = (edgeLen * t / wavelength) * Math.PI * 2;
         const offset = Math.sin(phase) * amp;
-        allPoints.push({ x: bx + nx * offset, y: by + ny * offset });
+        allPoints.push(tearPoint(bx, by, nx, ny, offset));
       }
     } else {
       // Jagged tear (fine or rough)
@@ -318,7 +346,7 @@ function applyTear(corners, tearKey, rng, charSize) {
         const bx = from.x + dx * t;
         const by = from.y + dy * t;
         const offset = rng.range(-1, 1) * amp;
-        allPoints.push({ x: bx + nx * offset, y: by + ny * offset });
+        allPoints.push(tearPoint(bx, by, nx, ny, offset));
       }
     }
   }
@@ -405,7 +433,15 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
   const cy = normCorners.reduce((s, c) => s + c.y, 0) / normCorners.length;
 
   const charSize = Math.min(boundsW, boundsH);
-  const path = applyTear(normCorners, tearKey, rng, charSize);
+
+  // 文字安全框：文字居中在 bounds 内，加 2px 余量
+  const safeBox = {
+    safeMinX: boundsW / 2 - textWidth / 2 - 2,
+    safeMaxX: boundsW / 2 + textWidth / 2 + 2,
+    safeMinY: boundsH / 2 - textHeight / 2 - 2,
+    safeMaxY: boundsH / 2 + textHeight / 2 + 2
+  };
+  const path = applyTear(normCorners, tearKey, rng, charSize, safeBox);
 
   return {
     path,
