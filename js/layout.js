@@ -62,51 +62,54 @@ function computeLayoutWithFontSize(p) {
   const gap = baseFontSize * 0.15;
   const lineGap = baseFontSize * 0.55;
 
-  // Pass 1: Analyze glyphs, classify shapes, pick tear styles, generate papers
-  let prevColors = null; // 记录上一个字的颜色，用于避免相邻同色
+  // Pass 1: 确定"长什么样"——只用 styleRng（只由 seed+text 决定，UI 参数不影响）
+  let prevColors = null;
   const items = units.map((unit, i) => {
-    const posRng = createPositionRng(seed, i);
-    let fontIdx = 0;
-    if (toggles.font) fontIdx = posRng.int(0, getFontCount() - 1);
+    const styleRng = createPositionRng(seed, i * 2 + 0);  // 样式 RNG
+    const layoutRng = createPositionRng(seed, i * 2 + 1); // 布局 RNG
+
+    // ── 样式部分：只用 styleRng ──
+    // 始终消耗 RNG 保证顺序稳定，toggles 只决定是否使用随机结果
+    const randomFontIdx = styleRng.int(0, getFontCount() - 1);
+    const fontIdx = toggles.font ? randomFontIdx : 0;
+    const glyph = analyzeGlyph(unit.text, getFontCss(fontIdx, 100));
+    const shapeType = classifyShape(glyph, styleRng, unit.isPunct);
+    const tearKey = pickTearStyle(styleRng, shapeType);
+
+    // Random stroke（样式的一部分，由 styleRng 决定）
+    const hasStrokeEarly = styleRng.chance(0.45);
+    const strokeRatio = hasStrokeEarly ? styleRng.range(0.08, 0.22) : 0;
+
+    // 配色（固定小幅度漂移，不受 randomAmount 影响）
+    const charColorScheme = toggles.color
+      ? createColorScheme(createRng(seed + i * 997), 0.15)
+      : colorScheme;
+    const { fill: fillColor, text: textColor, stroke: strokeColor } = charColorScheme.getColors(styleRng, prevColors);
+    prevColors = { fill: fillColor, text: textColor, stroke: strokeColor };
+
+    // 纹理
+    const textureIdx = styleRng.int(0, TEXTURES.length - 1);
+
+    // ── 布局部分：用 layoutRng 和 UI 参数 ──
     let fontSize = baseFontSize;
-    if (toggles.size) fontSize = baseFontSize * posRng.range(0.85, 1.15);
+    if (toggles.size) fontSize = baseFontSize * layoutRng.range(0.85, 1.15);
     const fontCss = getFontCss(fontIdx, fontSize);
     ctx.font = fontCss;
 
-    // Layer 1: analyze glyph at 100px ONLY for shape features (theta/tilt)
-    const glyph = analyzeGlyph(unit.text, fontCss);
-    const shapeType = classifyShape(glyph, posRng, unit.isPunct);
+    // strokeW 是 strokeRatio * fontSize，fontSize 是布局参数，但 strokeRatio 是样式
+    const strokeWEarly = strokeRatio * fontSize;
 
-    // Layer 2: pick tear style (seed-driven, weakly correlated with shape)
-    const tearKey = pickTearStyle(posRng, shapeType);
-
-    // Random stroke: ~45% chance, thickness 0.08~0.22 * fontSize
-    // Must be computed BEFORE measureRealBounds so bounds include stroke
-    const hasStrokeEarly = posRng.chance(0.45);
-    const strokeWEarly = hasStrokeEarly ? posRng.range(0.08, 0.22) * fontSize : 0;
-
-    // Measure real bounds INCLUDING stroke, so safeBox accounts for stroked glyph
+    // 测量真实边界
     const real = measureRealBounds(unit.text, fontCss, fontSize, strokeWEarly);
     const textW = real.w;
     const textH = real.h;
     const glyphOx = real.ox;
     const glyphOy = real.oy;
 
-    // Generate paper (shape + tear; rotation is NOT here—handled in Pass 3)
-    const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, posRng, unit.isPunct, unit.text, fontCss, fontSize, strokeWEarly);
+    // 生成纸片（样式 RNG）
+    const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, styleRng, unit.isPunct, unit.text, fontCss, fontSize, strokeWEarly);
 
-    // 每个字独立选一套配色方案（用 seed + index 派生 RNG）
-    const drift = (randomAmount / 100) * 0.5;
-    const charColorScheme = toggles.color
-      ? createColorScheme(createRng(seed + i * 997), drift)
-      : colorScheme;
-    const { fill: fillColor, text: textColor, stroke: strokeColor } = charColorScheme.getColors(posRng, prevColors);
-    prevColors = { fill: fillColor, text: textColor, stroke: strokeColor };
-
-    // 随机纹理索引（和配色一起选）
-    const textureIdx = posRng.int(0, TEXTURES.length - 1);
-
-    return { unit, posRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy, strokeW: strokeWEarly };
+    return { unit, styleRng, layoutRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy, strokeW: strokeWEarly };
   });
 
   // Pass 2: Line wrapping
@@ -149,10 +152,9 @@ function computeLayoutWithFontSize(p) {
     }
 
     line.forEach((item) => {
-      const posRng = item.posRng;
+      const layoutRng = item.layoutRng;
       const isPunct = item.unit.isPunct;
 
-      // Use stroke computed in Pass 1 (before generatePaper)
       const strokeW = item.strokeW;
 
       // Punctuation: smaller float, near line center
@@ -164,10 +166,10 @@ function computeLayoutWithFontSize(p) {
         yPos = currentY + lineH / 2;
         floatRange = MAX_FLOAT;
       }
-      const floatY = posRng.range(-floatRange, floatRange) * item.textH * randomFactor;
+      const floatY = layoutRng.range(-floatRange, floatRange) * item.textH * randomFactor;
 
-      // 随机旋转（最后一步）
-      const rotation = posRng.range(-MAX_ROTATION, MAX_ROTATION) * randomFactor * (Math.PI / 180);
+      // 随机旋转（用 layoutRng，randomAmount 控制幅度）
+      const rotation = layoutRng.range(-MAX_ROTATION, MAX_ROTATION) * randomFactor * (Math.PI / 180);
 
       // Punctuation: paper follows glyph's natural position (offset by ox/oy)
       const posOX = isPunct ? item.glyphOx : 0;
