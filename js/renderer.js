@@ -70,7 +70,9 @@ export function renderToCanvas(params, canvas) {
     ctx.shadowOffsetY = Math.max(1, shadowFs * 0.04);
     ctx.fillStyle = '#000';
     if (el.paper.mask) {
-      ctx.drawImage(el.paper.mask, 0, 0);
+      // mask 画布比 bounds 大，需要裁剪到有效区域（maskOffset 起点）
+      const mo = el.paper.maskOffset || { x: 0, y: 0 };
+      ctx.drawImage(el.paper.mask, mo.x, mo.y, el.paper.bounds.w, el.paper.bounds.h, 0, 0, el.paper.bounds.w, el.paper.bounds.h);
     } else {
       ctx.fill(el.paper.path);
     }
@@ -108,7 +110,8 @@ export function renderToCanvas(params, canvas) {
       }
       tctx.setTransform(1, 0, 0, 1, 0, 0);
       tctx.globalCompositeOperation = 'destination-in';
-      tctx.drawImage(el.paper.mask, 0, 0);
+      const mo = el.paper.maskOffset || { x: 0, y: 0 };
+      tctx.drawImage(el.paper.mask, mo.x, mo.y, bw, bh, 0, 0, bw, bh);
       ctx.drawImage(tmp, 0, 0);
     } else if (texImg) {
       // 普通形状：底色 + 纹理叠加

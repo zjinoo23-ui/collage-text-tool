@@ -3,7 +3,7 @@
 // ── Tunable thresholds (初值，后续可调) ──
 const TH = {
   glyphCutoutProb: 0.25,  // 字形裁剪的概率（剩余为矩形 0.75）
-  glyphCutoutPad: 0.175,  // 字形裁剪的描边厚度（占字号比例）
+  glyphCutoutPad: 0.0875, // 字形裁剪的描边厚度（占字号比例）
   // ── 矩形纸片：预防式扇形约束模型 ──
   safeMarginRatio: 0.04, // 安全框边距（占字号比例）
   fanRadiusRatio: 0.12,  // 顶点扇形半径（占字号比例）
@@ -323,11 +323,11 @@ function applyTear(corners, tearKey, rng, charSize, safeBox = null) {
 export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, rng, isPunct = false, text = '', fontCss = '', fontSize = 0, strokeW = 0) {
   // ── glyphCutout: paper hugs the glyph outline with thick padding ──
   // 旋转不在此处理——渲染阶段 mask 和文字一起旋转，相对位置不变
-  // 所以 mask 画布用未旋转的文字尺寸即可，不需要保守余量
+  // bounds 用 mask 实际非透明像素边界，不用整个画布尺寸
   if (shapeType === 'glyphCutout' && text && fontCss) {
     const pad = fontSize * TH.glyphCutoutPad;
-    const maskPad = Math.max(pad, (strokeW || 0) / 2) + 4;
-    const extraPad = maskPad + 6;
+    const maskPad = Math.max(pad, (strokeW || 0) / 2) + 2;
+    const extraPad = maskPad + 4;
     const cw = Math.ceil(textWidth + extraPad * 2);
     const ch = Math.ceil(textHeight + extraPad * 2);
     const mask = document.createElement('canvas');
@@ -349,10 +349,33 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     mctx.lineWidth = maskPad * 2;
     mctx.strokeText(text, cw / 2, ch / 2);
     mctx.fillText(text, cw / 2, ch / 2);
+
+    // 扫描 mask 实际边界，得到 bounds
+    const imgData = mctx.getImageData(0, 0, cw, ch).data;
+    let minX = cw, maxX = 0, minY = ch, maxY = 0;
+    for (let y = 0; y < ch; y++) {
+      for (let x = 0; x < cw; x++) {
+        if (imgData[(y * cw + x) * 4 + 3] > 10) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    // 四周各加 1px 安全余量
+    minX = Math.max(0, minX - 1);
+    minY = Math.max(0, minY - 1);
+    maxX = Math.min(cw - 1, maxX + 1);
+    maxY = Math.min(ch - 1, maxY + 1);
+    const boundsW = maxX - minX + 1;
+    const boundsH = maxY - minY + 1;
+
     return {
       path: null,
       mask,
-      bounds: { w: cw, h: ch },
+      maskOffset: { x: minX, y: minY },  // mask 内有效区域起点
+      bounds: { w: boundsW, h: boundsH },
       center: { x: cw / 2, y: ch / 2 },
       type: 'glyphCutout',
       tear: 'straight',
