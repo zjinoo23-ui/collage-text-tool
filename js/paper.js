@@ -371,12 +371,16 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     const boundsW = maxX - minX + 1;
     const boundsH = maxY - minY + 1;
 
+    // bounds 中心（裁剪后的有效区域中心），用于文字定位
+    const centerX = boundsW / 2;
+    const centerY = boundsH / 2;
+
     return {
       path: null,
       mask,
       maskOffset: { x: minX, y: minY },  // mask 内有效区域起点
       bounds: { w: boundsW, h: boundsH },
-      center: { x: cw / 2, y: ch / 2 },
+      center: { x: centerX, y: centerY },
       type: 'glyphCutout',
       tear: 'straight',
       textOffset: { x: (cw - textWidth) / 2, y: (ch - textHeight) / 2 }
