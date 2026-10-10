@@ -179,7 +179,7 @@ export function measureRealBounds(text, fontCss, fontSize, strokeW = 0) {
  */
 export function classifyShape(glyph, rng, isPunct = false) {
   if (isPunct) return 'rect';
-  if (Math.abs(glyph.theta) >= TH.tiltDeg) return 'parallelogram';
+  // 平行四边形已取消：倾斜字母也用矩形扇形模型
   const roll = rng.range(0, 1);
   if (roll < TH.glyphCutoutProb) return 'glyphCutout';
   if (roll < TH.glyphCutoutProb + TH.pentagonProb) return 'pentagon';
