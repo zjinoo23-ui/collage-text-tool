@@ -180,14 +180,15 @@ export function classifyShape(glyph, rng, isPunct = false) {
  * Generate base corners, then apply independent random stretch to each corner.
  * 五边形：顶边中间凸起一个角；六边形：顶边和底边各凸起一个角。
  */
-function buildCorners(shapeType, baseW, baseH, glyph, rng) {
+function buildCorners(shapeType, baseW, baseH, glyph, rng, maxSkew = Infinity) {
   // Step 1: base shape
   let corners;
   let outRanges;
 
   if (shapeType === 'parallelogram') {
     const dir = glyph.theta >= 0 ? 1 : -1;
-    const skew = Math.min(baseH * 0.35, Math.abs(glyph.theta) / 15 * baseH * 0.4) * rng.range(0.5, 1.3) * dir;
+    const rawSkew = Math.min(baseH * 0.35, Math.abs(glyph.theta) / 15 * baseH * 0.4) * rng.range(0.5, 1.3);
+    const skew = Math.min(rawSkew, maxSkew) * dir;
     corners = [
       { x: Math.abs(skew), y: 0 },
       { x: baseW + skew, y: 0 },
@@ -331,7 +332,7 @@ function applyTear(corners, tearKey, rng, charSize, safeBox = null) {
   const tearPoint = (bx, by, nx, ny, offset) => {
     if (!safeBox) return { x: bx + nx * offset, y: by + ny * offset };
     const space = inwardSpace(bx, by, nx, ny);
-    const safety = 2;
+    const safety = 5;
     if (offset <= 0) return { x: bx + nx * offset, y: by + ny * offset };
     const maxInward = Math.max(0, space - safety);
     const falloff = Math.max(2, charSize * 0.03);
@@ -458,13 +459,14 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     padX = textWidth * 0.08 + textHeight * 0.08;
     padY = textHeight * 0.10;
     const isShaped = (shapeType === 'parallelogram');
-    // 平行四边形需要更大安全余量：skew 导致斜边切入 safeBox
-    shapeSafety = isShaped ? textWidth * 0.30 + textHeight * 0.20 : textHeight * 0.075;
+    shapeSafety = isShaped ? textWidth * 0.15 + textHeight * 0.10 : textHeight * 0.075;
   }
   const baseW = textWidth + padX * 2 + shapeSafety;
   const baseH = textHeight + padY * 2 + shapeSafety * 0.5;
 
-  const corners = buildCorners(shapeType, baseW, baseH, glyph, rng);
+  // 平行四边形斜边不切入 safeBox 的最大 skew：可用水平内边距的 75%
+  const maxSkew = (2 * padX + shapeSafety - 4) * 0.75;
+  const corners = buildCorners(shapeType, baseW, baseH, glyph, rng, maxSkew);
   let minX = Math.min(...corners.map(c => c.x));
   let minY = Math.min(...corners.map(c => c.y));
   let maxX = Math.max(...corners.map(c => c.x));
@@ -473,24 +475,22 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
   let boundsW = maxX - minX;
   let boundsH = maxY - minY;
 
-  // 文字安全框：文字居中在 bounds 内，加 2px 余量
+  // 文字安全框：文字居中在 bounds 内，加 5px 余量（含描边宽度）
   let safeBox = {
-    safeMinX: boundsW / 2 - textWidth / 2 - 2,
-    safeMaxX: boundsW / 2 + textWidth / 2 + 2,
-    safeMinY: boundsH / 2 - textHeight / 2 - 2,
-    safeMaxY: boundsH / 2 + textHeight / 2 + 2
+    safeMinX: boundsW / 2 - textWidth / 2 - 5,
+    safeMaxX: boundsW / 2 + textWidth / 2 + 5,
+    safeMinY: boundsH / 2 - textHeight / 2 - 5,
+    safeMaxY: boundsH / 2 + textHeight / 2 + 5
   };
 
-  // 确保纸片多边形完全包含 safeBox
-  // 平行四边形等斜边形状的角点拉伸可能导致 safeBox 超出多边形
-  // 从中心向外缩放角点，直到 safeBox 完全在多边形内
-  for (let iter = 0; iter < 8; iter++) {
-    if (safeBoxInPolygon(normCorners, safeBox)) break;
+  // 安全网：skew 上限已确保平行四边形包含 safeBox
+  // 若角点拉伸的极端随机导致 safeBox 超出（罕见），单次小幅外扩 1.12x
+  if (!safeBoxInPolygon(normCorners, safeBox)) {
     const scx = boundsW / 2;
     const scy = boundsH / 2;
     const scaled = normCorners.map(c => ({
-      x: scx + (c.x - scx) * 1.08,
-      y: scy + (c.y - scy) * 1.08
+      x: scx + (c.x - scx) * 1.15,
+      y: scy + (c.y - scy) * 1.15
     }));
     minX = Math.min(...scaled.map(c => c.x));
     minY = Math.min(...scaled.map(c => c.y));
@@ -500,10 +500,10 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     boundsW = maxX - minX;
     boundsH = maxY - minY;
     safeBox = {
-      safeMinX: boundsW / 2 - textWidth / 2 - 2,
-      safeMaxX: boundsW / 2 + textWidth / 2 + 2,
-      safeMinY: boundsH / 2 - textHeight / 2 - 2,
-      safeMaxY: boundsH / 2 + textHeight / 2 + 2
+      safeMinX: boundsW / 2 - textWidth / 2 - 5,
+      safeMaxX: boundsW / 2 + textWidth / 2 + 5,
+      safeMinY: boundsH / 2 - textHeight / 2 - 5,
+      safeMaxY: boundsH / 2 + textHeight / 2 + 5
     };
   }
 
