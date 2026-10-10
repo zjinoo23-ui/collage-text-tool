@@ -44,22 +44,26 @@ export function analyzeGlyph(text, fontCss) {
   const canvas = getMeasureCanvas();
   const mctx = canvas.getContext('2d');
   const fs = 100; // analyze at fixed large size for accuracy
-  mctx.clearRect(0, 0, 300, 300);
+  // Size canvas to fit text: at 100px, each char ~60px avg
+  const aSize = Math.max(300, Math.ceil(text.length * 60 + 100));
+  canvas.width = aSize;
+  canvas.height = aSize;
+  mctx.clearRect(0, 0, aSize, aSize);
   mctx.font = fontCss.replace(/[\d.]+px/, fs + 'px');
   mctx.fillStyle = '#000';
   mctx.textAlign = 'center';
   mctx.textBaseline = 'middle';
-  mctx.fillText(text, 150, 150);
+  mctx.fillText(text, aSize / 2, aSize / 2);
 
-  const imgData = mctx.getImageData(0, 0, 300, 300).data;
-  let minX = 300, maxX = 0, minY = 300, maxY = 0;
+  const imgData = mctx.getImageData(0, 0, aSize, aSize).data;
+  let minX = aSize, maxX = 0, minY = aSize, maxY = 0;
   const rowCenters = []; // {y, cx} for tilt regression
   const rowWidths = new Map(); // y -> width (for top/bottom ratio)
 
-  for (let y = 0; y < 300; y++) {
-    let rowMinX = 300, rowMaxX = 0, rowCount = 0;
-    for (let x = 0; x < 300; x++) {
-      const alpha = imgData[(y * 300 + x) * 4 + 3];
+  for (let y = 0; y < aSize; y++) {
+    let rowMinX = aSize, rowMaxX = 0, rowCount = 0;
+    for (let x = 0; x < aSize; x++) {
+      const alpha = imgData[(y * aSize + x) * 4 + 3];
       if (alpha > 20) {
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
@@ -84,9 +88,9 @@ export function analyzeGlyph(text, fontCss) {
   let h = maxY - minY;
   let r = w / h;
   r = Math.max(0.35, Math.min(2.8, r));
-  // Glyph center offset from draw point (150,150) at 100px — for accurate centering
-  const ox = (minX + maxX) / 2 - 150;
-  const oy = (minY + maxY) / 2 - 150;
+  // Glyph center offset from draw point (aSize/2, aSize/2) at 100px
+  const ox = (minX + maxX) / 2 - aSize / 2;
+  const oy = (minY + maxY) / 2 - aSize / 2;
 
   // Top/bottom width ratio (t)
   const topStart = minY;
@@ -132,7 +136,7 @@ function getMeasCanvas() {
  */
 export function measureRealBounds(text, fontCss, fontSize, strokeW = 0) {
   const canvas = getMeasCanvas();
-  const size = Math.ceil(fontSize * 3);
+  const size = Math.ceil(Math.max(fontSize * 3, fontSize * 0.6 * (text.length + 2)));
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
@@ -451,12 +455,20 @@ function applyTear(corners, tearKey, rng, charSize, safeBox = null) {
  * @param {boolean} isPunct - smaller padding for punctuation
  * @returns {object} { path, bounds:{w,h}, type }
  */
-export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, rng, isPunct = false, text = '', fontCss = '', fontSize = 0, strokeW = 0) {
+export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, rng, isPunct = false, text = '', fontCss = '', fontSize = 0, strokeW = 0, rotation = 0) {
   // ── glyphCutout: paper hugs the glyph outline with thick padding ──
   if (shapeType === 'glyphCutout' && text && fontCss) {
     const pad = fontSize * TH.glyphCutoutPad;
-    const cw = Math.ceil(textWidth + pad * 2 + 4);
-    const ch = Math.ceil(textHeight + pad * 2 + 4);
+    // 旋转后边界框 = W*|cos| + H*|sin| (宽), W*|sin| + H*|cos| (高)
+    const absSin = Math.abs(Math.sin(rotation));
+    const absCos = Math.abs(Math.cos(rotation));
+    const rotatedW = textWidth * absCos + textHeight * absSin;
+    const rotatedH = textWidth * absSin + textHeight * absCos;
+    // maskPad = 渲染器描边的一半 + 安全余量，确保遮罩覆盖渲染后的描边文字
+    const maskPad = Math.max(pad, (strokeW || 0) / 2) + 4;
+    const extraPad = maskPad + 6;
+    const cw = Math.ceil(rotatedW + extraPad * 2);
+    const ch = Math.ceil(rotatedH + extraPad * 2);
     const mask = document.createElement('canvas');
     mask.width = cw;
     mask.height = ch;
@@ -464,12 +476,21 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     mctx.font = fontCss;
     mctx.textAlign = 'center';
     mctx.textBaseline = 'middle';
+    // 先用渲染器相同的描边画一遍，再用更粗的描边覆盖外缘
     mctx.lineJoin = 'round';
     mctx.lineCap = 'round';
-    mctx.lineWidth = pad * 2;
+    mctx.miterLimit = 2;
     mctx.strokeStyle = '#000';
     mctx.fillStyle = '#000';
+    // 1) 渲染器描边（完全一致，包括 lineJoin/miterLimit）
+    if (strokeW > 0) {
+      mctx.lineWidth = strokeW;
+      mctx.strokeText(text, cw / 2, ch / 2);
+    }
+    // 2) 更粗的描边覆盖外缘（maskPad*2 > strokeW）
+    mctx.lineWidth = maskPad * 2;
     mctx.strokeText(text, cw / 2, ch / 2);
+    // 3) 填充内部
     mctx.fillText(text, cw / 2, ch / 2);
     return {
       path: null,
@@ -536,9 +557,7 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     let boundsW = maxX - minX;
     let boundsH = maxY - minY;
 
-    // 安全框（用于撕裂约束）：描边后文本框以 paper 质心为中心 + 边距
-    // 平行四边形的安全框仍是轴对齐（与 applyTear 兼容）
-    // cx/cy 是归一化后的质心，文本以此为基准
+    // 安全框（用于撕裂约束）：文本以质心为中心，safeBox = 文本框 + safeMargin
     const cx = normCorners.reduce((s, c) => s + c.x, 0) / normCorners.length;
     const cy = normCorners.reduce((s, c) => s + c.y, 0) / normCorners.length;
     let safeBox = {
