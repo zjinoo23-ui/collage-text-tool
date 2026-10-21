@@ -24,7 +24,8 @@ export const SIZES = {
  * Compute layout for the given input.
  */
 export function computeLayout(params) {
-  const { units, sizeKey, bgType, align, seed, randomAmount, scale, toggles, colorScheme, ctx } = params;
+  const { units, sizeKey, bgType, align, seed, randomAmount, scale, toggles, colorScheme, ctx,
+    gapScale = 0.15, lineGapScale = 0.55 } = params;
 
   const size = SIZES[sizeKey];
   const isTransparent = bgType === 'transparent';
@@ -44,7 +45,7 @@ export function computeLayout(params) {
   for (let attempt = 0; attempt < 5; attempt++) {
     result = computeLayoutWithFontSize({
       units, sizeKey, isTransparent, bleed, contentX, contentY, contentW, contentH,
-      align, seed, randomAmount, baseFontSize, toggles, colorScheme, ctx
+      align, seed, randomAmount, gapScale, lineGapScale, baseFontSize, toggles, colorScheme, ctx
     });
     if (result.totalH <= contentH) break;
     // Shrink font by 15% and retry
@@ -56,18 +57,19 @@ export function computeLayout(params) {
 
 function computeLayoutWithFontSize(p) {
   const { units, isTransparent, bleed, contentX, contentY, contentW, contentH,
-    align, seed, randomAmount, baseFontSize, toggles, colorScheme, ctx } = p;
+    align, seed, randomAmount, gapScale, lineGapScale, baseFontSize, toggles, colorScheme, ctx } = p;
 
   const randomFactor = randomAmount / 100;
-  const gap = baseFontSize * 0.15;
-  const spaceExtra = baseFontSize * 0.4;  // 空格的额外间距
-  const lineGap = baseFontSize * 0.55;
+  const gap = baseFontSize * gapScale;            // 字间距
+  const spaceExtra = baseFontSize * 0.4;          // 空格的额外间距
+  const lineGap = baseFontSize * lineGapScale;    // 行间距
 
   // Pass 1: 确定"长什么样"——只用 styleRng（只由 seed+text 决定，UI 参数不影响）
   let prevColors = null;
   const items = [];
   let atLineStart = true;       // 是否处于行首（文本开头或换行后）
   let pendingLeading = 0;       // 行首连续空格数（用于首行缩进）
+  let paperIndex = 0;           // 纸片序号：只统计可见字符，插入空格不改变随机样式
   units.forEach((unit, i) => {
     // 换行：只作为排版断点，不生成纸片
     if (unit.isBreak) {
@@ -87,8 +89,9 @@ function computeLayoutWithFontSize(p) {
       return;
     }
 
-    const styleRng = createPositionRng(seed, i * 2 + 0);  // 样式 RNG
-    const layoutRng = createPositionRng(seed, i * 2 + 1); // 布局 RNG
+    const idx = paperIndex++;
+    const styleRng = createPositionRng(seed, idx * 2 + 0);  // 样式 RNG
+    const layoutRng = createPositionRng(seed, idx * 2 + 1); // 布局 RNG
 
     // ── 样式部分：只用 styleRng ──
     // 始终消耗 RNG 保证顺序稳定，toggles 只决定是否使用随机结果
@@ -104,7 +107,7 @@ function computeLayoutWithFontSize(p) {
 
     // 配色（固定小幅度漂移，不受 randomAmount 影响）
     const charColorScheme = toggles.color
-      ? createColorScheme(createRng(seed + i * 997), 0.15)
+      ? createColorScheme(createRng(seed + idx * 997), 0.15)
       : colorScheme;
     const { fill: fillColor, text: textColor, stroke: strokeColor } = charColorScheme.getColors(styleRng, prevColors);
     prevColors = { fill: fillColor, text: textColor, stroke: strokeColor };
@@ -131,7 +134,7 @@ function computeLayoutWithFontSize(p) {
     // 生成纸片（样式 RNG）
     const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, styleRng, unit.isPunct, unit.text, fontCss, fontSize, strokeWEarly);
 
-    items.push({ unit, styleRng, layoutRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy, strokeW: strokeWEarly, spaceCount: 0, leadingSpaces: pendingLeading });
+    items.push({ unit, styleRng, layoutRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: idx, glyphOx, glyphOy, strokeW: strokeWEarly, spaceCount: 0, leadingSpaces: pendingLeading });
     pendingLeading = 0;
     atLineStart = false;
   });

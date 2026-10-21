@@ -16,6 +16,10 @@ const scaleSlider = document.getElementById('scaleSlider');
 const scaleValue = document.getElementById('scaleValue');
 const randomSlider = document.getElementById('randomSlider');
 const randomValue = document.getElementById('randomValue');
+const gapSlider = document.getElementById('gapSlider');
+const gapValue = document.getElementById('gapValue');
+const lineGapSlider = document.getElementById('lineGapSlider');
+const lineGapValue = document.getElementById('lineGapValue');
 const toggleSize = document.getElementById('toggleSize');
 const sizeSelect = document.getElementById('sizeSelect');
 const bgSelect = document.getElementById('bgSelect');
@@ -31,6 +35,8 @@ const state = {
   align: 'left',
   scale: 1.0,
   randomAmount: 60,
+  gapScale: 0.15,
+  lineGapScale: 0.55,
   toggles: { color: true, font: true, size: true },
   sizeKey: 'portrait',
   bgType: 'white',
@@ -53,6 +59,8 @@ function getParams() {
     bgType: state.bgType,
     seed: state.seed,
     randomAmount: state.randomAmount,
+    gapScale: state.gapScale,
+    lineGapScale: state.lineGapScale,
     scale: state.scale,
     toggles: state.toggles
   };
@@ -135,6 +143,20 @@ scaleSlider.addEventListener('input', () => {
 randomSlider.addEventListener('input', () => {
   state.randomAmount = parseInt(randomSlider.value);
   randomValue.textContent = randomSlider.value + '%';
+  debouncedRender();
+});
+
+// Letter spacing
+gapSlider.addEventListener('input', () => {
+  state.gapScale = parseInt(gapSlider.value) / 100;
+  gapValue.textContent = gapSlider.value + '%';
+  debouncedRender();
+});
+
+// Line spacing
+lineGapSlider.addEventListener('input', () => {
+  state.lineGapScale = parseInt(lineGapSlider.value) / 100;
+  lineGapValue.textContent = lineGapSlider.value + '%';
   debouncedRender();
 });
 

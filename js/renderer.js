@@ -14,7 +14,7 @@ import { assetsReady, getTextureImages } from './assets.js';
  * @returns {object} The layout result
  */
 export function renderToCanvas(params, canvas) {
-  const { text, segmentMode, sizeKey, bgType, align, seed, randomAmount, scale, toggles } = params;
+  const { text, segmentMode, sizeKey, bgType, align, seed, randomAmount, gapScale, lineGapScale, scale, toggles } = params;
 
   const size = SIZES[sizeKey];
   canvas.width = size.w;
@@ -42,6 +42,8 @@ export function renderToCanvas(params, canvas) {
     align,
     seed,
     randomAmount,
+    gapScale,
+    lineGapScale,
     scale,
     toggles,
     colorScheme,
