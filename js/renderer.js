@@ -3,8 +3,6 @@
 import { drawBackground } from './backgrounds.js';
 import { computeLayout, SIZES } from './layout.js';
 import { segmentText } from './segmenter.js';
-import { createRng, createPositionRng } from './rng.js';
-import { createColorScheme } from './palettes.js';
 import { assetsReady, getTextureImages } from './assets.js';
 
 /**
@@ -29,11 +27,6 @@ export function renderToCanvas(params, canvas) {
   const units = segmentText(text, segmentMode);
   if (units.length === 0) return null;
 
-  // Create color scheme from global seed
-  const globalRng = createRng(seed);
-  const driftAmount = (randomAmount / 100) * 0.5;
-  const colorScheme = createColorScheme(globalRng, driftAmount);
-
   // Compute layout
   const layout = computeLayout({
     units,
@@ -46,7 +39,6 @@ export function renderToCanvas(params, canvas) {
     lineGapScale,
     scale,
     toggles,
-    colorScheme,
     ctx
   });
 

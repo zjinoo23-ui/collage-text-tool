@@ -1,78 +1,114 @@
-// palettes.js - Color palette management system
-// 每套配色方案 3 组颜色：纸片底色(fills)、文字颜色(textColors)、描边颜色(strokeColors)
+// palettes.js - Color palette system (v2)
+// 规则：柔和纸片为主、鲜亮色点缀、深色文字稳定画面
+// 每套配色 3 组颜色：纸片底色(fills)、文字颜色(textColors)、描边颜色(strokeColors)
+
+import { createRng, hashString } from './rng.js';
+
+const ALGORITHM_VERSION = 'collage-color-v2';
 
 const PALETTES = [
   {
-    id: 'vintage-mag-clash',
-    name: '复古杂志撞色',
-    fills: ['#F7C6D0', '#F4D35E', '#8EC5E8', '#E99A79', '#B8D986'],
-    textColors: ['#202020', '#174A8B', '#C72C48'],
-    strokeColors: ['#FFFFFF', '#35252C']
+    id: 'old-magazine-pink-yellow-blue',
+    name: '旧杂志粉黄蓝',
+    fills: ['#E7B7B8', '#E8D59C', '#A8B9C7', '#C87961', '#A9B69A'],
+    textColors: ['#242321', '#34495A', '#783E3B'],
+    strokeColors: ['#F8F2E7', '#302B2A']
   },
   {
-    id: 'candy-pink-blue',
-    name: '糖果粉蓝',
-    fills: ['#FFB3D1', '#F7D6E0', '#8ED8F8', '#B8B5FF', '#FFF0A8'],
-    textColors: ['#D92772', '#1747A6', '#43265E'],
-    strokeColors: ['#FFFFFF', '#282044']
+    id: 'cream-pink-dark-red',
+    name: '奶油粉与暗红',
+    fills: ['#E8B8C0', '#F0D8C8', '#D5C1B4', '#B86B68', '#AEB9AE'],
+    textColors: ['#282423', '#713E45', '#3E5653'],
+    strokeColors: ['#FBF5EC', '#30292A']
   },
   {
-    id: 'lemon-orange-soda',
-    name: '柠檬橘子汽水',
-    fills: ['#FFF176', '#FFC857', '#FF9B71', '#FFB7A5', '#B9E769'],
-    textColors: ['#D93625', '#243B7A', '#242424'],
-    strokeColors: ['#FFFFFF', '#572C27']
+    id: 'mustard-ink-green',
+    name: '芥末黄与墨绿',
+    fills: ['#D9BF68', '#E8D9B7', '#AEBB9D', '#809C8D', '#C9896C'],
+    textColors: ['#252724', '#344E42', '#57433A'],
+    strokeColors: ['#F8F1E4', '#26302C']
   },
   {
-    id: 'cobalt-yellow',
-    name: '钴蓝与亮黄',
-    fills: ['#A8D8F0', '#F9E547', '#7CC8C0', '#F7B6CB', '#C5B7F2'],
-    textColors: ['#1746A2', '#E63845', '#202020'],
-    strokeColors: ['#FFFFFF', '#192B56']
+    id: 'gray-blue-brick-red',
+    name: '灰蓝与砖红',
+    fills: ['#9FB3C1', '#D8D0C4', '#BD7266', '#E2C98B', '#ABB5A6'],
+    textColors: ['#24272A', '#34495D', '#6F3733'],
+    strokeColors: ['#F7F2E9', '#2D3030']
   },
   {
-    id: 'pop-art',
-    name: '波普艺术红黄蓝',
-    fills: ['#F04452', '#FFD84D', '#4DB6E5', '#F7A8C8', '#79C96B'],
-    textColors: ['#171717', '#FFFFFF', '#172D70'],
-    strokeColors: ['#202020', '#FFFFFF']
+    id: 'dusty-pink-grape',
+    name: '暗粉与葡萄紫',
+    fills: ['#D7A6AD', '#E6D5BE', '#AFA6B5', '#C58B76', '#9DAE9D'],
+    textColors: ['#282427', '#51415D', '#74434A'],
+    strokeColors: ['#FBF4E9', '#302A30']
   },
   {
-    id: 'sour-sweet-glucose',
-    name: '酸甜葡萄糖',
-    fills: ['#E7B5F5', '#FFB8D2', '#C7B8FF', '#F6D96B', '#A8E6CF'],
-    textColors: ['#7129A6', '#D62978', '#252525'],
-    strokeColors: ['#FFFFFF', '#46204E']
+    id: 'retro-teal-orange',
+    name: '复古青绿与橙',
+    fills: ['#78A69B', '#E2C48A', '#D28B6F', '#D7C9B7', '#A9B6A6'],
+    textColors: ['#252827', '#294C48', '#684235'],
+    strokeColors: ['#F8F1E6', '#28302E']
   },
   {
-    id: 'strawberry-milk',
-    name: '活力草莓牛奶',
-    fills: ['#FFB4B4', '#F57D9B', '#FFE2A8', '#FFCEE5', '#B6E3D1'],
-    textColors: ['#C51E46', '#7D245A', '#253A67'],
-    strokeColors: ['#FFFFFF', '#4A2032']
+    id: 'faded-red-blue',
+    name: '褪色红蓝',
+    fills: ['#C97A74', '#8EA5B4', '#E5D1AE', '#D7B4A6', '#B7B8A4'],
+    textColors: ['#272523', '#35485B', '#633A36'],
+    strokeColors: ['#FAF3E7', '#302D2A']
   },
   {
-    id: 'street-graffiti',
-    name: '街头涂鸦',
-    fills: ['#FF7A45', '#FFD447', '#58C4DD', '#D6F36A', '#F5A6D0'],
-    textColors: ['#171717', '#1749B0', '#D51F35'],
-    strokeColors: ['#FFFFFF', '#202020']
+    id: 'warm-brown-sea-salt',
+    name: '暖棕与海盐蓝',
+    fills: ['#C98B68', '#E5D5BD', '#9CB8C2', '#B9B39A', '#D5AAA0'],
+    textColors: ['#262522', '#344C57', '#654337'],
+    strokeColors: ['#FAF3E8', '#302B28']
   },
   {
-    id: 'sea-salt-mint',
-    name: '清新海盐薄荷',
-    fills: ['#A8E6CF', '#B5E7F5', '#D1F28A', '#FFF0A6', '#F7B8D0'],
-    textColors: ['#176B68', '#2455A4', '#C53662'],
-    strokeColors: ['#FFFFFF', '#25413E']
+    id: 'paper-mint-rose',
+    name: '旧纸薄荷与玫瑰',
+    fills: ['#A9C5B2', '#E7D9B7', '#D7A0A7', '#A9BBC1', '#C8896A'],
+    textColors: ['#242725', '#36514A', '#773E4A'],
+    strokeColors: ['#F9F4E9', '#2A302D']
   },
   {
-    id: 'retro-rock',
-    name: '彩色复古摇滚',
-    fills: ['#F3A6A6', '#E8C95A', '#83B9DB', '#B7CE73', '#D5A6CF'],
-    textColors: ['#242424', '#C62838', '#253D78'],
-    strokeColors: ['#FFFFFF', '#33252B']
+    id: 'retro-rock-accent',
+    name: '复古摇滚点缀',
+    fills: ['#C76B62', '#D5B84F', '#66869B', '#78866A', '#B68A9C'],
+    textColors: ['#201F20', '#F5EBDD', '#283B54'],
+    strokeColors: ['#F8F1E6', '#292626']
   }
 ];
+
+// 色位分类：0/1/4 = 柔和纸色，2 = 中彩度，3 = 强调色
+const CATEGORIES = [
+  { indices: [0, 1, 4], weight: 0.60 },
+  { indices: [2], weight: 0.25 },
+  { indices: [3], weight: 0.15 }
+];
+
+// 底色约束
+const MIN_FILL_L = 0.35;       // 明度低于该值不作为底色
+const BRIGHT_SAT = 0.65;       // HSL 饱和度高于该值视为鲜亮色
+const BRIGHT_WINDOW = 10;      // 连续 10 个字内鲜亮底色最多 1 次
+const HUE_WINDOW = 5;          // 连续 5 个字内
+const HUE_MAX_COUNT = 2;       // 同一色相区间最多 2 次
+const HUE_TOLERANCE = 18;      // 色相相差小于 18° 视为同一区间
+const HUE_MIN_SAT = 0.12;      // 饱和度太低的颜色不参与色相聚类
+
+// 对比度阈值
+// 注：规范中「描边/底色 ≥3」与「描边/文字 ≥5」在浅底深字时数学上无法同时满足
+// （每套只有纸白 + 深色两个描边色），故只保留「描边/文字 ≥5」，保证描边不与文字糊在一起
+const TEXT_AA = 4.5;
+const TEXT_FALLBACK = 3.0;
+const STROKE_VS_TEXT = 5.0;
+
+// 固定漂移幅度（不跟随随机幅度滑块）
+const DRIFT_H = 2.25;          // 色相 ±2.25°
+const DRIFT_S = 1.5;           // 饱和度 ±1.5 个百分点
+const DRIFT_L = 1.2;           // 明度 ±1.2 个百分点
+
+// 兜底组合（不漂移）
+const FALLBACK = { fill: '#E8D9B7', text: '#242321', stroke: '#F8F2E7' };
 
 /** Get all palettes */
 export function getPalettes() {
@@ -93,7 +129,7 @@ function relativeLuminance(hex) {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;
   const b = parseInt(hex.slice(5, 7), 16) / 255;
-  const lin = c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  const lin = c => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
   const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
   _luminanceCache.set(hex, L);
   return L;
@@ -108,108 +144,214 @@ function contrastRatio(hex1, hex2) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-/**
- * 智能配色方案：用对比度筛选颜色，保证文字可读、描边有效。
- * @param {object} rng - RNG 实例（用于选方案）
- * @param {number} driftAmount - 0-1，颜色漂移幅度
- * @returns {object} { palette, getColors(posRng, prevColors) }
- */
-export function createColorScheme(rng, driftAmount = 0) {
-  const palette = rng.pick(PALETTES);
-
-  return {
-    palette,
-    /**
-     * 智能选色：底色 → 按对比度筛文字色 → 按对比度筛描边色
-     * @param {object} posRng - 位置 RNG
-     * @param {object|null} prevColors - 上一个字的颜色（用于避免相邻完全同色）
-     * @returns {{fill:string, text:string, stroke:string}}
-     */
-    getColors(posRng, prevColors = null) {
-      let fill, text, stroke;
-
-      // 最多尝试 8 次，找到对比度合格的组合
-      for (let attempt = 0; attempt < 8; attempt++) {
-        // 第 1 步：随机选纸片底色（不漂移，先保证对比度）
-        fill = posRng.pick(palette.fills);
-
-        // 第 2 步：从文字颜色中按对比度筛选（不漂移）
-        let textCandidates = palette.textColors.map(c => ({ hex: c, contrast: contrastRatio(fill, c) }));
-        // 优先对比度 ≥ 4.5 的
-        let qualified = textCandidates.filter(tc => tc.contrast >= 4.5);
-        // 没有合格的，放宽到 ≥ 3.0
-        if (qualified.length === 0) qualified = textCandidates.filter(tc => tc.contrast >= 3.0);
-        // 仍然没有，选对比度最高的
-        if (qualified.length === 0) {
-          text = textCandidates.reduce((a, b) => a.contrast > b.contrast ? a : b).hex;
-        } else {
-          text = posRng.pick(qualified).hex;
-        }
-
-        // 第 3 步：筛选描边颜色
-        const strokeCandidates = palette.strokeColors.map(c => ({
-          hex: c,
-          vsText: contrastRatio(c, text),
-          vsFill: contrastRatio(c, fill)
-        }));
-
-        // 描边需要和文字有区别(≥5) 且 和底色有区别(≥3)
-        let qualifiedStrokes = strokeCandidates.filter(s => s.vsText >= 5 && s.vsFill >= 3);
-        if (qualifiedStrokes.length === 0) {
-          // 放宽：至少和文字 ≥3 或 和底色 ≥3
-          qualifiedStrokes = strokeCandidates.filter(s => s.vsText >= 3 || s.vsFill >= 3);
-        }
-        if (qualifiedStrokes.length > 0) {
-          stroke = posRng.pick(qualifiedStrokes).hex;
-        } else {
-          // 兜底
-          const fallback1 = '#171717';
-          const fallback2 = '#FFFFFF';
-          const c1 = Math.max(contrastRatio(fallback1, text), contrastRatio(fallback1, fill));
-          const c2 = Math.max(contrastRatio(fallback2, text), contrastRatio(fallback2, fill));
-          stroke = c1 >= c2 ? fallback1 : fallback2;
-        }
-
-        // 第 4 步：漂移（在选好颜色之后漂移）
-        if (driftAmount > 0) {
-          fill = driftColorWithRng(fill, posRng, driftAmount);
-          text = driftColorWithRng(text, posRng, driftAmount);
-          stroke = driftColorWithRng(stroke, posRng, driftAmount);
-        }
-
-        // 第 5 步：漂移后再检查对比度，确保仍然合格
-        const fillTextContrast = contrastRatio(fill, text);
-        const strokeTextContrast = contrastRatio(stroke, text);
-        const strokeFillContrast = contrastRatio(stroke, fill);
-
-        const score = Math.min(fillTextContrast, strokeTextContrast, strokeFillContrast);
-
-        // 文字 vs 底色 ≥ 4.5，描边 vs 文字 ≥ 5（防混色），描边 vs 底色 ≥ 3
-        if (fillTextContrast >= 4.5 && strokeTextContrast >= 5 && strokeFillContrast >= 3) {
-          // 检查是否和上一个字完全相同
-          if (prevColors && fill === prevColors.fill && text === prevColors.text && stroke === prevColors.stroke) {
-            if (attempt < 7) continue;
-          }
-          return { fill, text, stroke };
-        }
-      }
-
-      // 兜底
-      return { fill, text: '#171717', stroke: '#FFFFFF' };
-    }
-  };
+/** HSL（h 0-360, s/l 0-1） */
+function hslUnit(hex) {
+  const { h, s, l } = hexToHsl(hex);
+  return { h, s: s / 100, l: l / 100 };
 }
 
-function driftColorWithRng(hex, rng, driftAmount) {
-  const { h, s, l } = hexToHsl(hex);
-  const hShift = rng.range(-15 * driftAmount, 15 * driftAmount);
-  const sShift = rng.range(-10 * driftAmount, 10 * driftAmount);
-  const lShift = rng.range(-8 * driftAmount, 8 * driftAmount);
-  return hslToHex(
-    Math.max(0, Math.min(360, h + hShift)),
-    Math.max(0, Math.min(100, s + sShift)),
-    Math.max(0, Math.min(100, l + lShift))
-  );
+/** 色相环距离 */
+function hueDistance(a, b) {
+  const d = Math.abs(a - b) % 360;
+  return Math.min(d, 360 - d);
+}
+
+/**
+ * 智能配色方案 v2
+ * @param {number} seed - 全局种子
+ * @returns {object} 配色方案实例
+ */
+export function createColorScheme(seed) {
+  const colorSeed = hashString(`${seed}:${ALGORITHM_VERSION}`);
+  // 最近可见字素的底色记录（用于鲜亮色 / 色相窗口约束）
+  const recentFills = [];
+
+  function paletteForGroup(groupIndex) {
+    const idx = hashString(`${colorSeed}:g${groupIndex}`) % PALETTES.length;
+    return PALETTES[idx];
+  }
+
+  /** 按类别权重抽一个底色 */
+  function pickWeightedFill(palette, rng) {
+    const r = rng.next();
+    let acc = 0;
+    let cat = CATEGORIES[CATEGORIES.length - 1];
+    for (const c of CATEGORIES) {
+      acc += c.weight;
+      if (r < acc) { cat = c; break; }
+    }
+    return palette.fills[cat.indices[rng.int(0, cat.indices.length - 1)]];
+  }
+
+  /** 底色是否满足明度 / 鲜亮 / 色相窗口约束 */
+  function acceptFill(hex) {
+    const { h, s, l } = hslUnit(hex);
+    if (l < MIN_FILL_L) return false;
+
+    // 连续 10 个字内鲜亮底色最多 1 次
+    const brightNow = s > BRIGHT_SAT;
+    if (brightNow && recentFills.slice(-(BRIGHT_WINDOW - 1)).some(f => f.bright)) return false;
+
+    // 连续 5 个字内同一色相区间最多 2 次
+    if (s >= HUE_MIN_SAT) {
+      const near = recentFills.slice(-(HUE_WINDOW - 1))
+        .filter(f => f.sat >= HUE_MIN_SAT && hueDistance(f.hue, h) < HUE_TOLERANCE);
+      if (near.length >= HUE_MAX_COUNT) return false;
+    }
+    return true;
+  }
+
+  /** 选底色（最多尝试 8 次，失败则退回柔和纸色） */
+  function pickFill(palette, pieceSeed, attempt) {
+    for (let k = 0; k < 8; k++) {
+      const rng = createRng(hashString(`${pieceSeed}:fill:${attempt}:${k}`));
+      const hex = pickWeightedFill(palette, rng);
+      if (acceptFill(hex)) return hex;
+    }
+    // 兜底：从柔和纸色中选一个满足明度的
+    for (const i of CATEGORIES[0].indices) {
+      const hex = palette.fills[i];
+      if (hslUnit(hex).l >= MIN_FILL_L) return hex;
+    }
+    return palette.fills[0];
+  }
+
+  /** 选文字色：优先 AA(4.5)，其次 3.0，再次最高对比度 */
+  function pickText(palette, fill, rng) {
+    const cands = palette.textColors.map(hex => ({ hex, k: contrastRatio(fill, hex) }));
+    const maxK = cands.reduce((m, c) => Math.max(m, c.k), 0);
+    const threshold = maxK >= TEXT_AA ? TEXT_AA : TEXT_FALLBACK;
+    let qualified = cands.filter(c => c.k >= threshold);
+    if (qualified.length === 0) qualified = [cands.reduce((a, b) => a.k > b.k ? a : b)];
+    return rng.pick(qualified).hex;
+  }
+
+  /** 选描边色：优先保证与文字对比度 ≥5，避免描边和字糊在一起 */
+  function pickStroke(palette, text, rng) {
+    const cands = palette.strokeColors.map(hex => ({
+      hex,
+      vsText: contrastRatio(hex, text)
+    }));
+    const tiers = [
+      c => c.vsText >= STROKE_VS_TEXT,
+      c => c.vsText >= TEXT_FALLBACK
+    ];
+    for (const tier of tiers) {
+      const qualified = cands.filter(tier);
+      if (qualified.length > 0) return rng.pick(qualified).hex;
+    }
+    return cands.reduce((a, b) => a.vsText > b.vsText ? a : b).hex;
+  }
+
+  /** 固定幅度漂移 */
+  function drift(hex, rng) {
+    const { h, s, l } = hexToHsl(hex);
+    return hslToHex(
+      (h + rng.range(-DRIFT_H, DRIFT_H) + 360) % 360,
+      Math.max(0, Math.min(100, s + rng.range(-DRIFT_S, DRIFT_S))),
+      Math.max(0, Math.min(100, l + rng.range(-DRIFT_L, DRIFT_L)))
+    );
+  }
+
+  /** 文字对比度阈值：该底色本身能达到 4.5 就要求 4.5，否则允许 3.0 降级 */
+  function textThresholdFor(palette, fill) {
+    const maxK = palette.textColors.reduce((m, c) => Math.max(m, contrastRatio(fill, c)), 0);
+    return maxK >= TEXT_AA ? TEXT_AA : TEXT_FALLBACK;
+  }
+
+  /** 复检：文字/底色、描边/文字 */
+  function passes(palette, fill, text, stroke) {
+    return contrastRatio(fill, text) >= textThresholdFor(palette, fill) &&
+      contrastRatio(stroke, text) >= STROKE_VS_TEXT;
+  }
+
+  function sameColors(a, b) {
+    return a && b && a.fill === b.fill && a.text === b.text && a.stroke === b.stroke;
+  }
+
+  /**
+   * 抽一个纸片的配色。
+   * @param {number} visibleIndex - 可见字素序号（标点/空格不占序号）
+   * @param {{fill,text,stroke}|null} prevVisible - 上一个可见字素的配色
+   * @param {string} seedTag - 随机流后缀（标点用 ':mark' 区分）
+   * @param {boolean} applyConstraints - 是否参与窗口约束 / 相邻去重 / 记录窗口
+   */
+  function sample(visibleIndex, prevVisible, seedTag, applyConstraints) {
+    const groupIndex = Math.floor(visibleIndex / 4);
+    const palette = paletteForGroup(groupIndex);
+    const pieceSeed = hashString(`${colorSeed}:${visibleIndex * 997}${seedTag}`);
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const stream = suffix => createRng(hashString(`${pieceSeed}:${suffix}:${attempt}`));
+
+      const fill = pickFill(palette, pieceSeed, attempt);
+      const text = pickText(palette, fill, stream('text'));
+      const stroke = pickStroke(palette, text, stream('stroke'));
+
+      // 漂移（三色各自独立子流）
+      const drifted = {
+        fill: drift(fill, stream('drift-fill')),
+        text: drift(text, stream('drift-text')),
+        stroke: drift(stroke, stream('drift-stroke'))
+      };
+
+      // 复检：不合格时撤销导致失败的颜色漂移
+      let resolved = null;
+      if (passes(palette, drifted.fill, drifted.text, drifted.stroke)) {
+        resolved = drifted;
+      } else {
+        const reverts = [
+          { ...drifted, fill },                 // 撤销底色漂移
+          { ...drifted, text },                 // 撤销文字漂移
+          { ...drifted, stroke },               // 撤销描边漂移
+          { fill, text, stroke }                // 全部撤销
+        ];
+        resolved = reverts.find(c => passes(palette, c.fill, c.text, c.stroke)) || null;
+      }
+      if (!resolved) continue;
+
+      // 相邻去重：只比较前一个可见字素（标点不参与）
+      if (applyConstraints && prevVisible && sameColors(resolved, prevVisible) && attempt < 7) {
+        continue;
+      }
+
+      if (applyConstraints) {
+        const { h, s } = hslUnit(resolved.fill);
+        recentFills.push({ hue: h, sat: s, bright: s > BRIGHT_SAT });
+        if (recentFills.length > BRIGHT_WINDOW) recentFills.shift();
+      }
+      return resolved;
+    }
+
+    // 8 次仍失败：兜底组合（不漂移）
+    if (applyConstraints) {
+      const { h, s } = hslUnit(FALLBACK.fill);
+      recentFills.push({ hue: h, sat: s, bright: false });
+      if (recentFills.length > BRIGHT_WINDOW) recentFills.shift();
+    }
+    return { ...FALLBACK };
+  }
+
+  return {
+    colorSeed,
+
+    /**
+     * 可见字素纸片的配色。
+     * @param {number} visibleIndex - 可见字素序号
+     * @param {{fill,text,stroke}|null} prevVisible - 上一个可见字素的配色
+     */
+    getPieceColors(visibleIndex, prevVisible = null) {
+      return sample(visibleIndex, prevVisible, '', true);
+    },
+
+    /**
+     * 标点纸片的配色：用当前组的调色板 + 当前字素序号，
+     * 不推进序号、不参与相邻去重、不影响窗口统计。
+     */
+    getMarkColors(visibleIndex) {
+      return sample(visibleIndex, null, ':mark', false);
+    }
+  };
 }
 
 // Color conversion utilities

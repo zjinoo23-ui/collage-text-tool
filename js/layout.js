@@ -1,10 +1,11 @@
 // layout.js - Layout engine: line wrapping, alignment, positioning
 
-import { createPositionRng, createRng } from './rng.js';
+import { createPositionRng } from './rng.js';
 import { getFontCss, getFontCount } from './fonts.js';
 import { analyzeGlyph, classifyShape, pickTearStyle, generatePaper, measureRealBounds } from './paper.js';
 import { TEXTURES } from './assets.js';
 import { createColorScheme } from './palettes.js';
+import { isPunct } from './segmenter.js';
 
 // Chinese punctuation that should NOT appear at line start
 const NO_START_PUNCT = /^[，。、；：！？""''）》】』」…—]$/;
@@ -24,7 +25,7 @@ export const SIZES = {
  * Compute layout for the given input.
  */
 export function computeLayout(params) {
-  const { units, sizeKey, bgType, align, seed, randomAmount, scale, toggles, colorScheme, ctx,
+  const { units, sizeKey, bgType, align, seed, randomAmount, scale, toggles, ctx,
     gapScale = 0.15, lineGapScale = 0.55 } = params;
 
   const size = SIZES[sizeKey];
@@ -45,7 +46,7 @@ export function computeLayout(params) {
   for (let attempt = 0; attempt < 5; attempt++) {
     result = computeLayoutWithFontSize({
       units, sizeKey, isTransparent, bleed, contentX, contentY, contentW, contentH,
-      align, seed, randomAmount, gapScale, lineGapScale, baseFontSize, toggles, colorScheme, ctx
+      align, seed, randomAmount, gapScale, lineGapScale, baseFontSize, toggles, ctx
     });
     if (result.totalH <= contentH) break;
     // Shrink font by 15% and retry
@@ -57,7 +58,7 @@ export function computeLayout(params) {
 
 function computeLayoutWithFontSize(p) {
   const { units, isTransparent, bleed, contentX, contentY, contentW, contentH,
-    align, seed, randomAmount, gapScale, lineGapScale, baseFontSize, toggles, colorScheme, ctx } = p;
+    align, seed, randomAmount, gapScale, lineGapScale, baseFontSize, toggles, ctx } = p;
 
   const randomFactor = randomAmount / 100;
   const gap = baseFontSize * gapScale;            // 字间距
@@ -65,11 +66,14 @@ function computeLayoutWithFontSize(p) {
   const lineGap = baseFontSize * lineGapScale;    // 行间距
 
   // Pass 1: 确定"长什么样"——只用 styleRng（只由 seed+text 决定，UI 参数不影响）
-  let prevColors = null;
+  // 配色方案每次布局重建，保证自动缩字号重试时配色一致
+  const scheme = createColorScheme(seed);
+  let prevVisibleColors = null;   // 上一个可见字素的配色（相邻去重）
+  let visibleIndex = 0;           // 可见字素序号（空格、换行、标点不占）
   const items = [];
   let atLineStart = true;       // 是否处于行首（文本开头或换行后）
   let pendingLeading = 0;       // 行首连续空格数（用于首行缩进）
-  let paperIndex = 0;           // 纸片序号：只统计可见字符，插入空格不改变随机样式
+  let paperIndex = 0;           // 纸片序号：只统计纸片，插入空格不改变随机样式
   units.forEach((unit, i) => {
     // 换行：只作为排版断点，不生成纸片
     if (unit.isBreak) {
@@ -105,12 +109,19 @@ function computeLayoutWithFontSize(p) {
     const hasStrokeEarly = styleRng.chance(0.45);
     const strokeRatio = hasStrokeEarly ? styleRng.range(0.08, 0.22) : 0;
 
-    // 配色（固定小幅度漂移，不受 randomAmount 影响）
-    const charColorScheme = toggles.color
-      ? createColorScheme(createRng(seed + idx * 997), 0.15)
-      : colorScheme;
-    const { fill: fillColor, text: textColor, stroke: strokeColor } = charColorScheme.getColors(styleRng, prevColors);
-    prevColors = { fill: fillColor, text: textColor, stroke: strokeColor };
+    // 配色（拼贴配色 v2）：
+    // - 可见字素：按 visibleIndex 取色，每 4 个字素换一个局部配色组
+    // - 标点：用当前组的调色板，不推进序号、不参与相邻去重
+    const chars = Array.from(unit.text);
+    const isMark = unit.isPunct && chars.every(ch => isPunct(ch));
+    const colors = isMark
+      ? scheme.getMarkColors(visibleIndex)
+      : scheme.getPieceColors(visibleIndex, prevVisibleColors);
+    const { fill: fillColor, text: textColor, stroke: strokeColor } = colors;
+    if (!isMark) {
+      prevVisibleColors = colors;
+      visibleIndex += chars.filter(ch => !isPunct(ch) && !/\s/.test(ch)).length;
+    }
 
     // 纹理
     const textureIdx = styleRng.int(0, TEXTURES.length - 1);
