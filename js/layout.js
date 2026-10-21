@@ -72,10 +72,10 @@ function computeLayoutWithFontSize(p) {
       items.push({ unit, isBreakMarker: true, index: i });
       return;
     }
-    // 空格：不生成纸片，只给前一个纸片标记"后置空格"
+    // 空格：不生成纸片，按空格数量给前一个纸片累加"后置空格间距"
     if (unit.isSpace) {
       const prev = items[items.length - 1];
-      if (prev && !prev.isBreakMarker) prev.spaceAfter = true;
+      if (prev && !prev.isBreakMarker) prev.spaceCount += 1;
       return;
     }
 
@@ -123,7 +123,7 @@ function computeLayoutWithFontSize(p) {
     // 生成纸片（样式 RNG）
     const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, styleRng, unit.isPunct, unit.text, fontCss, fontSize, strokeWEarly);
 
-    items.push({ unit, styleRng, layoutRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy, strokeW: strokeWEarly, spaceAfter: false });
+    items.push({ unit, styleRng, layoutRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy, strokeW: strokeWEarly, spaceCount: 0 });
   });
 
   // Pass 2: Line wrapping
@@ -151,7 +151,7 @@ function computeLayoutWithFontSize(p) {
     let totalLineW = 0;
     line.forEach((item, i) => {
       totalLineW += item.layoutW;
-      if (i < line.length - 1) totalLineW += gap + (item.spaceAfter ? spaceExtra : 0);
+      if (i < line.length - 1) totalLineW += gap + item.spaceCount * spaceExtra;
     });
 
     let x = contentX;
@@ -160,7 +160,7 @@ function computeLayoutWithFontSize(p) {
     else if (align === 'indent' && lineIdx === 0) {
       // Indent by 2 paper widths (use first 2 items, or estimate from fontSize)
       const indentW = line.length >= 2
-        ? line[0].layoutW + gap + (line[0].spaceAfter ? spaceExtra : 0) + line[1].layoutW
+        ? line[0].layoutW + gap + line[0].spaceCount * spaceExtra + line[1].layoutW
         : (line[0]?.layoutW ?? baseFontSize) * 2;
       x = contentX + indentW;
     }
@@ -197,7 +197,7 @@ function computeLayoutWithFontSize(p) {
         textureIdx: item.textureIdx,
         glyphOx: item.glyphOx, glyphOy: item.glyphOy
       });
-      x += item.layoutW + gap + (item.spaceAfter ? spaceExtra : 0);
+      x += item.layoutW + gap + item.spaceCount * spaceExtra;
     });
     currentY += lineH;
   });
@@ -221,7 +221,8 @@ function wrapLines(items, maxWidth, gap, spaceExtra) {
   let currentWidth = 0;
 
   function gapAfter(prevItem) {
-    return prevItem && prevItem.spaceAfter ? gap + spaceExtra : gap;
+    const n = prevItem ? prevItem.spaceCount : 0;
+    return gap + n * spaceExtra;
   }
 
   function flush() {
