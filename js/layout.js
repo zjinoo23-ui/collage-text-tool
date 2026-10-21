@@ -66,16 +66,24 @@ function computeLayoutWithFontSize(p) {
   // Pass 1: 确定"长什么样"——只用 styleRng（只由 seed+text 决定，UI 参数不影响）
   let prevColors = null;
   const items = [];
+  let atLineStart = true;       // 是否处于行首（文本开头或换行后）
+  let pendingLeading = 0;       // 行首连续空格数（用于首行缩进）
   units.forEach((unit, i) => {
     // 换行：只作为排版断点，不生成纸片
     if (unit.isBreak) {
       items.push({ unit, isBreakMarker: true, index: i });
+      atLineStart = true;
+      pendingLeading = 0;
       return;
     }
-    // 空格：不生成纸片，按空格数量给前一个纸片累加"后置空格间距"
+    // 空格：行首 -> 缩进；行中 -> 给前一个纸片累加间距
     if (unit.isSpace) {
-      const prev = items[items.length - 1];
-      if (prev && !prev.isBreakMarker) prev.spaceCount += 1;
+      if (atLineStart) {
+        pendingLeading += 1;
+      } else {
+        const prev = items[items.length - 1];
+        if (prev && !prev.isBreakMarker) prev.spaceCount += 1;
+      }
       return;
     }
 
@@ -123,7 +131,9 @@ function computeLayoutWithFontSize(p) {
     // 生成纸片（样式 RNG）
     const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, styleRng, unit.isPunct, unit.text, fontCss, fontSize, strokeWEarly);
 
-    items.push({ unit, styleRng, layoutRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy, strokeW: strokeWEarly, spaceCount: 0 });
+    items.push({ unit, styleRng, layoutRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy, strokeW: strokeWEarly, spaceCount: 0, leadingSpaces: pendingLeading });
+    pendingLeading = 0;
+    atLineStart = false;
   });
 
   // Pass 2: Line wrapping
@@ -148,7 +158,8 @@ function computeLayoutWithFontSize(p) {
 
   lines.forEach((line, lineIdx) => {
     const lineH = lineHeights[lineIdx];
-    let totalLineW = 0;
+    const lineIndent = (line[0]?.leadingSpaces ?? 0) * spaceExtra;
+    let totalLineW = lineIndent;
     line.forEach((item, i) => {
       totalLineW += item.layoutW;
       if (i < line.length - 1) totalLineW += gap + item.spaceCount * spaceExtra;
@@ -164,6 +175,7 @@ function computeLayoutWithFontSize(p) {
         : (line[0]?.layoutW ?? baseFontSize) * 2;
       x = contentX + indentW;
     }
+    x += lineIndent;
 
     line.forEach((item) => {
       const layoutRng = item.layoutRng;
@@ -236,9 +248,17 @@ function wrapLines(items, maxWidth, gap, spaceExtra) {
   // 单个纸片的放置（标点规则 + 超长兜底）
   function addItem(item) {
     const prev = currentLine[currentLine.length - 1];
-    const totalIfAdded = currentWidth + (prev ? gapAfter(prev) : 0) + item.layoutW;
 
-    if (currentLine.length > 0 && totalIfAdded > maxWidth) {
+    // 行首：应用首行缩进
+    if (!prev) {
+      currentLine.push(item);
+      currentWidth = (item.leadingSpaces || 0) * spaceExtra + item.layoutW;
+      return;
+    }
+
+    const totalIfAdded = currentWidth + gapAfter(prev) + item.layoutW;
+
+    if (totalIfAdded > maxWidth) {
       // Handle punctuation: don't let punctuation start a new line
       if (NO_START_PUNCT.test(item.unit.text)) {
         // Try to fit on current line with slight overflow
@@ -251,13 +271,13 @@ function wrapLines(items, maxWidth, gap, spaceExtra) {
         const lastItem = currentLine.pop();
         if (currentLine.length > 0) lines.push(currentLine);
         currentLine = [lastItem, item];
-        currentWidth = lastItem.layoutW + gapAfter(lastItem) + item.layoutW;
+        currentWidth = (lastItem.leadingSpaces || 0) * spaceExtra + lastItem.layoutW + gapAfter(lastItem) + item.layoutW;
         return;
       }
 
       lines.push(currentLine);
       currentLine = [item];
-      currentWidth = item.layoutW;
+      currentWidth = (item.leadingSpaces || 0) * spaceExtra + item.layoutW;
     } else {
       currentLine.push(item);
       currentWidth = totalIfAdded;
@@ -305,12 +325,13 @@ function wrapLines(items, maxWidth, gap, spaceExtra) {
     }
 
     const prev = currentLine[currentLine.length - 1];
-    const totalIfAdded = currentWidth + (prev ? gapAfter(prev) : 0) + groupWidth;
+    const groupIndent = (group[0].leadingSpaces || 0) * spaceExtra;
+    const totalIfAdded = (prev ? currentWidth + gapAfter(prev) : groupIndent) + groupWidth;
 
-    if (currentLine.length > 0 && totalIfAdded > maxWidth) {
+    if (prev && totalIfAdded > maxWidth) {
       flush();
       currentLine = group.slice();
-      currentWidth = groupWidth;
+      currentWidth = groupIndent + groupWidth;
     } else {
       currentLine.push(...group);
       currentWidth = totalIfAdded;

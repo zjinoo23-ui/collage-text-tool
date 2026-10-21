@@ -69,7 +69,11 @@ export function segmentText(text, mode) {
         i++;
         continue;
       }
-      if (isSpace(ch)) { i++; continue; }
+      if (isSpace(ch)) {
+        units.push({ text: ' ', index: i, isSpace: true });
+        i++;
+        continue;
+      }
       if (isChinese(ch) || isPunct(ch)) {
         push(ch, i);
         i++;
