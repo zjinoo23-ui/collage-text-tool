@@ -60,11 +60,25 @@ function computeLayoutWithFontSize(p) {
 
   const randomFactor = randomAmount / 100;
   const gap = baseFontSize * 0.15;
+  const spaceExtra = baseFontSize * 0.4;  // 空格的额外间距
   const lineGap = baseFontSize * 0.55;
 
   // Pass 1: 确定"长什么样"——只用 styleRng（只由 seed+text 决定，UI 参数不影响）
   let prevColors = null;
-  const items = units.map((unit, i) => {
+  const items = [];
+  units.forEach((unit, i) => {
+    // 换行：只作为排版断点，不生成纸片
+    if (unit.isBreak) {
+      items.push({ unit, isBreakMarker: true, index: i });
+      return;
+    }
+    // 空格：不生成纸片，只给前一个纸片标记"后置空格"
+    if (unit.isSpace) {
+      const prev = items[items.length - 1];
+      if (prev && !prev.isBreakMarker) prev.spaceAfter = true;
+      return;
+    }
+
     const styleRng = createPositionRng(seed, i * 2 + 0);  // 样式 RNG
     const layoutRng = createPositionRng(seed, i * 2 + 1); // 布局 RNG
 
@@ -109,11 +123,11 @@ function computeLayoutWithFontSize(p) {
     // 生成纸片（样式 RNG）
     const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, styleRng, unit.isPunct, unit.text, fontCss, fontSize, strokeWEarly);
 
-    return { unit, styleRng, layoutRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy, strokeW: strokeWEarly };
+    items.push({ unit, styleRng, layoutRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: i, glyphOx, glyphOy, strokeW: strokeWEarly, spaceAfter: false });
   });
 
   // Pass 2: Line wrapping
-  const lines = wrapLines(items, contentW, gap);
+  const lines = wrapLines(items, contentW, gap, spaceExtra);
 
   // Pass 3: Position
   const lineHeights = lines.map(line => {
@@ -137,7 +151,7 @@ function computeLayoutWithFontSize(p) {
     let totalLineW = 0;
     line.forEach((item, i) => {
       totalLineW += item.layoutW;
-      if (i < line.length - 1) totalLineW += gap;
+      if (i < line.length - 1) totalLineW += gap + (item.spaceAfter ? spaceExtra : 0);
     });
 
     let x = contentX;
@@ -146,7 +160,7 @@ function computeLayoutWithFontSize(p) {
     else if (align === 'indent' && lineIdx === 0) {
       // Indent by 2 paper widths (use first 2 items, or estimate from fontSize)
       const indentW = line.length >= 2
-        ? line[0].layoutW + gap + line[1].layoutW
+        ? line[0].layoutW + gap + (line[0].spaceAfter ? spaceExtra : 0) + line[1].layoutW
         : (line[0]?.layoutW ?? baseFontSize) * 2;
       x = contentX + indentW;
     }
@@ -183,7 +197,7 @@ function computeLayoutWithFontSize(p) {
         textureIdx: item.textureIdx,
         glyphOx: item.glyphOx, glyphOy: item.glyphOy
       });
-      x += item.layoutW + gap;
+      x += item.layoutW + gap + (item.spaceAfter ? spaceExtra : 0);
     });
     currentY += lineH;
   });
@@ -198,58 +212,110 @@ function computeLayoutWithFontSize(p) {
  * Wrap items into lines respecting rules:
  * - Uses paper (layout) width for wrapping decisions
  * - No punctuation at line start
- * - Items are never split (each is atomic)
+ * - 英文单词（同一 wordId 的字符）整词不可拆到两行
+ * - 空格只产生额外间距，不占用纸片
  */
-function wrapLines(items, maxWidth, gap) {
+function wrapLines(items, maxWidth, gap, spaceExtra) {
   const lines = [];
   let currentLine = [];
   let currentWidth = 0;
 
-  for (const item of items) {
-    // Handle forced line break from user input
-    if (item.unit.isBreak) {
-      if (currentLine.length > 0) {
-        lines.push(currentLine);
-        currentLine = [];
-        currentWidth = 0;
-      }
-      continue;
+  function gapAfter(prevItem) {
+    return prevItem && prevItem.spaceAfter ? gap + spaceExtra : gap;
+  }
+
+  function flush() {
+    if (currentLine.length > 0) {
+      lines.push(currentLine);
+      currentLine = [];
+      currentWidth = 0;
     }
+  }
 
-    const itemWidth = item.layoutW;
-    const needsGap = currentLine.length > 0;
-    const totalIfAdded = currentWidth + (needsGap ? gap : 0) + itemWidth;
+  // 单个纸片的放置（标点规则 + 超长兜底）
+  function addItem(item) {
+    const prev = currentLine[currentLine.length - 1];
+    const totalIfAdded = currentWidth + (prev ? gapAfter(prev) : 0) + item.layoutW;
 
-    // Check if this item would overflow
     if (currentLine.length > 0 && totalIfAdded > maxWidth) {
       // Handle punctuation: don't let punctuation start a new line
-      if (NO_START_PUNCT.test(item.unit.text) && currentLine.length > 0) {
+      if (NO_START_PUNCT.test(item.unit.text)) {
         // Try to fit on current line with slight overflow
         if (totalIfAdded <= maxWidth * 1.1) {
           currentLine.push(item);
           currentWidth = totalIfAdded;
-          continue;
+          return;
         }
         // Move last item + punctuation to new line together
         const lastItem = currentLine.pop();
-        lines.push(currentLine);
+        if (currentLine.length > 0) lines.push(currentLine);
         currentLine = [lastItem, item];
-        currentWidth = lastItem.layoutW + gap + itemWidth;
-        continue;
+        currentWidth = lastItem.layoutW + gapAfter(lastItem) + item.layoutW;
+        return;
       }
 
       lines.push(currentLine);
       currentLine = [item];
-      currentWidth = itemWidth;
+      currentWidth = item.layoutW;
     } else {
       currentLine.push(item);
       currentWidth = totalIfAdded;
     }
   }
 
-  if (currentLine.length > 0) {
-    lines.push(currentLine);
+  let i = 0;
+  while (i < items.length) {
+    const item = items[i];
+
+    // 强制换行
+    if (item.isBreakMarker) {
+      flush();
+      i++;
+      continue;
+    }
+
+    // 收集同一英文单词的所有字符，作为不可拆分的整体
+    const group = [item];
+    let next = i + 1;
+    if (item.unit.wordId !== undefined && item.unit.wordId !== null) {
+      while (next < items.length && !items[next].isBreakMarker &&
+             items[next].unit.wordId === item.unit.wordId) {
+        group.push(items[next]);
+        next++;
+      }
+    }
+    i = next;
+
+    if (group.length === 1) {
+      addItem(item);
+      continue;
+    }
+
+    // 整词宽度（含词内间距）
+    let groupWidth = 0;
+    for (let k = 0; k < group.length; k++) {
+      groupWidth += group[k].layoutW + (k > 0 ? gapAfter(group[k - 1]) : 0);
+    }
+
+    // 整词单独一行都放不下：只能按字符换行兜底
+    if (groupWidth > maxWidth) {
+      group.forEach(addItem);
+      continue;
+    }
+
+    const prev = currentLine[currentLine.length - 1];
+    const totalIfAdded = currentWidth + (prev ? gapAfter(prev) : 0) + groupWidth;
+
+    if (currentLine.length > 0 && totalIfAdded > maxWidth) {
+      flush();
+      currentLine = group.slice();
+      currentWidth = groupWidth;
+    } else {
+      currentLine.push(...group);
+      currentWidth = totalIfAdded;
+    }
   }
 
+  flush();
   return lines;
 }

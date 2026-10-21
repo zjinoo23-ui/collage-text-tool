@@ -35,12 +35,29 @@ export function segmentText(text, mode) {
   }
 
   if (mode === 'char') {
+    // 逐字模式：每个字符独立成纸片，但记录空格与英文单词分组
+    // - 空格 -> 独立 space 单元（布局时表现为额外间距，不生成纸片）
+    // - 连续的字母/数字共享同一个 wordId（排版时整词不可跨行）
+    let wordId = 0;
+    let prevIsWordChar = false;
     for (let i = 0; i < text.length; i++) {
       const ch = text[i];
       if (isNewline(ch)) {
         units.push({ text: '\n', index: i, isBreak: true });
-      } else if (!isSpace(ch)) {
-        push(ch, i);
+        prevIsWordChar = false;
+      } else if (isSpace(ch)) {
+        units.push({ text: ' ', index: i, isSpace: true });
+        prevIsWordChar = false;
+      } else {
+        let wid = null;
+        if (isAlnum(ch)) {
+          if (!prevIsWordChar) wordId++;
+          wid = wordId;
+          prevIsWordChar = true;
+        } else {
+          prevIsWordChar = false;
+        }
+        push(ch, i, wid !== null ? { wordId: wid } : {});
       }
     }
   } else if (mode === 'mixed') {
