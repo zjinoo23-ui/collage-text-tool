@@ -9,56 +9,56 @@ const PALETTES = [
   {
     id: 'newsprint',
     name: '晨报新闻纸',
-    fills: ['#F0E6CF', '#E5DAC0', '#D8A08C', '#B85C5C', '#A8B8A6'],
+    fills: ['#F0E6CF', '#E5DAC0', '#D28E72', '#BF5158', '#A8B8A6'],
     textColors: ['#26261F', '#F7F1E0', '#9E3B42'],
     strokeColors: ['#FFF8EA', '#3A342C']
   },
   {
     id: 'faded-poster',
     name: '褪色海报',
-    fills: ['#EFE3C8', '#E7CF9A', '#D9B45E', '#B5533F', '#A39A6C'],
+    fills: ['#EFE3C8', '#E7CF9A', '#D9B45E', '#B04A33', '#A39A6C'],
     textColors: ['#29251E', '#F8F1DF', '#8C3B2A'],
     strokeColors: ['#FDF6E6', '#3E352B']
   },
   {
     id: 'aged-magazine',
     name: '旧杂志',
-    fills: ['#EDE2CE', '#E6B9A8', '#9AAEC0', '#B46A70', '#A6B2A0'],
+    fills: ['#EDE2CE', '#E6B9A8', '#9AAEC0', '#AD5A5E', '#A6B2A0'],
     textColors: ['#262422', '#F6EFE2', '#7E4849'],
     strokeColors: ['#FBF5E8', '#373430']
   },
   {
     id: 'paper-trove',
     name: '纸堆',
-    fills: ['#EBDCC0', '#F2E7CD', '#D19A7E', '#5A4438', '#A9B8A4'],
+    fills: ['#EBDCC0', '#F2E7CD', '#CB8B66', '#5A4438', '#A9B8A4'],
     textColors: ['#26211C', '#F5ECDA', '#B0644A'],
     strokeColors: ['#FBF3E0', '#3A2F27']
   },
   {
     id: 'worn-books',
     name: '旧书',
-    fills: ['#EFE3C4', '#E7DCC3', '#A8544A', '#3E4A5E', '#A29A6B'],
+    fills: ['#EFE3C4', '#E7DCC3', '#A84A3E', '#3E4A5E', '#A29A6B'],
     textColors: ['#232323', '#F2EAD8', '#7E4A41'],
     strokeColors: ['#F9F2E1', '#2E2B28']
   },
   {
     id: 'garage-sale',
     name: '旧货摊',
-    fills: ['#EFE5CE', '#E2D4B4', '#C96A5E', '#D9B569', '#9FB6AE'],
+    fills: ['#EFE5CE', '#E2D4B4', '#C75F4C', '#D9B569', '#9FB6AE'],
     textColors: ['#2A2620', '#F7F0DF', '#A0493C'],
     strokeColors: ['#FCF5E6', '#37322A']
   },
   {
     id: 'library-cards',
     name: '档案卡',
-    fills: ['#F0E8D4', '#E4DAC2', '#C0786E', '#4A3F36', '#8FA5B4'],
+    fills: ['#F0E8D4', '#E4DAC2', '#BD6457', '#4A3F36', '#8FA5B4'],
     textColors: ['#252525', '#F4EEDF', '#95534A'],
     strokeColors: ['#FAF4E5', '#35302A']
   },
   {
     id: 'field-notes',
     name: '野外笔记',
-    fills: ['#EDE2C8', '#E6D9B6', '#9AA878', '#3E4A3A', '#B05A4E'],
+    fills: ['#EDE2C8', '#E6D9B6', '#94A466', '#3E4A3A', '#AD4E3E'],
     textColors: ['#25231E', '#F4EDDB', '#8A4638'],
     strokeColors: ['#F9F2E2', '#33302A']
   }
