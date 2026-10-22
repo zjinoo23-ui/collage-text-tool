@@ -11,56 +11,64 @@ const PALETTES = [
     name: '晨报新闻纸',
     fills: ['#F0E6CF', '#E5DAC0', '#D28E72', '#BF5158', '#A8B8A6'],
     textColors: ['#26261F', '#F7F1E0', '#9E3B42'],
-    strokeColors: ['#FFF8EA', '#3A342C']
+    strokeColors: ['#FFF8EA', '#3A342C'],
+    jumpTextColors: ['#2F6FA3', '#C65D2E']
   },
   {
     id: 'faded-poster',
     name: '褪色海报',
     fills: ['#EFE3C8', '#E7CF9A', '#D9B45E', '#B04A33', '#A39A6C'],
     textColors: ['#29251E', '#F8F1DF', '#8C3B2A'],
-    strokeColors: ['#FDF6E6', '#3E352B']
+    strokeColors: ['#FDF6E6', '#3E352B'],
+    jumpTextColors: ['#2F6FA3', '#C23A32']
   },
   {
     id: 'aged-magazine',
     name: '旧杂志',
     fills: ['#EDE2CE', '#E6B9A8', '#9AAEC0', '#AD5A5E', '#A6B2A0'],
     textColors: ['#262422', '#F6EFE2', '#7E4849'],
-    strokeColors: ['#FBF5E8', '#373430']
+    strokeColors: ['#FBF5E8', '#373430'],
+    jumpTextColors: ['#C14A32', '#3E7D3E']
   },
   {
     id: 'paper-trove',
     name: '纸堆',
     fills: ['#EBDCC0', '#F2E7CD', '#CB8B66', '#5A4438', '#A9B8A4'],
     textColors: ['#26211C', '#F5ECDA', '#B0644A'],
-    strokeColors: ['#FBF3E0', '#3A2F27']
+    strokeColors: ['#FBF3E0', '#3A2F27'],
+    jumpTextColors: ['#2F6FA3', '#C65D2E']
   },
   {
     id: 'worn-books',
     name: '旧书',
     fills: ['#EFE3C4', '#E7DCC3', '#A84A3E', '#3E4A5E', '#A29A6B'],
     textColors: ['#232323', '#F2EAD8', '#7E4A41'],
-    strokeColors: ['#F9F2E1', '#2E2B28']
+    strokeColors: ['#F9F2E1', '#2E2B28'],
+    jumpTextColors: ['#C65D2E', '#2E8B4F']
   },
   {
     id: 'garage-sale',
     name: '旧货摊',
     fills: ['#EFE5CE', '#E2D4B4', '#C75F4C', '#D9B569', '#9FB6AE'],
     textColors: ['#2A2620', '#F7F0DF', '#A0493C'],
-    strokeColors: ['#FCF5E6', '#37322A']
+    strokeColors: ['#FCF5E6', '#37322A'],
+    jumpTextColors: ['#2F6FA3', '#3E7D3E']
   },
   {
     id: 'library-cards',
     name: '档案卡',
     fills: ['#F0E8D4', '#E4DAC2', '#BD6457', '#4A3F36', '#8FA5B4'],
     textColors: ['#252525', '#F4EEDF', '#95534A'],
-    strokeColors: ['#FAF4E5', '#35302A']
+    strokeColors: ['#FAF4E5', '#35302A'],
+    jumpTextColors: ['#C65D2E', '#2E8B4F']
   },
   {
     id: 'field-notes',
     name: '野外笔记',
     fills: ['#EDE2C8', '#E6D9B6', '#94A466', '#3E4A3A', '#AD4E3E'],
     textColors: ['#25231E', '#F4EDDB', '#8A4638'],
-    strokeColors: ['#F9F2E2', '#33302A']
+    strokeColors: ['#F9F2E2', '#33302A'],
+    jumpTextColors: ['#C65D2E', '#2F6FA3']
   }
 ];
 
@@ -82,6 +90,9 @@ const STROKE_VS_TEXT = 5.0;
 const INK_BLACK_RULE = l => l <= 20;      // 明度 ≤ 20% 视为"墨黑"
 const INK_BLACK_WHEN_BRIGHT = 0.6;       // 浅纸时墨黑概率 60%
 const GROUP_COLORED_TEXT_MAX = 1;         // 每组彩色字母上限
+const JUMP_VS_REGULAR_IN_COLORED = 0.3;   // 彩色桶内跳色 30% / 常规彩 70%
+const RECENT_JUMP_WINDOW = 15;            // 连续 15 字素的滑窗
+const RECENT_JUMP_MAX = 1;                // 其中跳色字 ≤1
 
 // 固定漂移幅度（不跟随随机幅度滑块）
 const DRIFT_H = 2.25;          // 色相 ±2.25°
@@ -137,8 +148,9 @@ export function createColorScheme(seed) {
   let currentGroup = -1;
   let accentInGroup = 0;
   let coloredTextInGroup = 0;         // 本组内已出现的彩色字母数
-  // 最近可见字素是否为强调色（保留最近 9 个，用于连续 10 字上限）
-  const recentAccents = [];
+  // 滑窗状态
+  const recentAccents = [];           // 保留最近 9 个，用于连续 10 字强调色上限
+  const recentJumps = [];             // 保留最近 14 个，用于连续 15 字跳色上限
 
   function paletteForGroup(groupIndex) {
     const idx = hashString(`${colorSeed}:g${groupIndex}`) % PALETTES.length;
@@ -179,11 +191,15 @@ export function createColorScheme(seed) {
    * - 浅纸（能达到 4.5 档）：
    *   ≥4.5 候选里，按 60% 概率挑墨黑，40% 挑彩色（后者要求 ≥3.0）。
    *   组内彩色字母已达上限时，强制墨黑桶。
-   *   仅在浅纸的彩色通路主动挑出非墨黑项时返回 colored=true；
-   *   墨黑通路 / 深纸降级路径 下的浅色字（例如深纸上的米白兜底字）都不计入彩色字母。
-   * - 深色纸（只能到 3.0 档）：保持旧降级逻辑，不做彩色分流，返回 colored=false。
+   *   彩色通路内再分 30% 跳色 / 70% 常规彩。跳色从 palette.jumpTextColors 里挑，
+   *   且对当前底色 ≥3.0；不可用时自动退回常规彩。
+   *   跳色滑窗约束（15 字内 ≤1）不满足时，跳过跳色通路。
+   *   仅在浅纸彩色通路主动挑出"彩色"时返回 colored=true；
+   *   仅在浅纸彩色通路主动挑出"跳色"时返回 jump=true。
+   * - 深色纸（只能到 3.0 档）：保持旧降级逻辑，不做彩色/跳色分流，
+   *   返回 colored=false, jump=false。
    */
-  function pickText(palette, fill, rng, coloredAllowed) {
+  function pickText(palette, fill, rng, coloredAllowed, jumpAllowed) {
     const cands = palette.textColors.map(hex => ({
       hex,
       k: contrastRatio(fill, hex),
@@ -196,34 +212,42 @@ export function createColorScheme(seed) {
       const inkPool = cands.filter(c => c.k >= threshold && c.bucket === 'ink');
       const coloredPool = cands.filter(c => c.k >= TEXT_FALLBACK && c.bucket === 'colored');
 
-      // 组内彩色字母已满 → 强制墨黑
+      // 组内彩色字母已满 → 强制墨黑（跳色也被连带禁止）
       if (!coloredAllowed) {
-        if (inkPool.length > 0) return { hex: rng.pick(inkPool).hex, colored: false };
-        // 没有墨黑候选时允许退回彩色，但这次彩色不消耗配额
-        if (coloredPool.length > 0) return { hex: rng.pick(coloredPool).hex, colored: false };
+        if (inkPool.length > 0) return { hex: rng.pick(inkPool).hex, colored: false, jump: false };
+        if (coloredPool.length > 0) return { hex: rng.pick(coloredPool).hex, colored: false, jump: false };
         const best = cands.reduce((a, b) => a.k > b.k ? a : b);
-        return { hex: best.hex, colored: false };
+        return { hex: best.hex, colored: false, jump: false };
       }
 
       if (rng.next() < INK_BLACK_WHEN_BRIGHT) {
         // 墨黑通路
-        if (inkPool.length > 0) return { hex: rng.pick(inkPool).hex, colored: false };
-        if (coloredPool.length > 0) return { hex: rng.pick(coloredPool).hex, colored: false };
+        if (inkPool.length > 0) return { hex: rng.pick(inkPool).hex, colored: false, jump: false };
+        if (coloredPool.length > 0) return { hex: rng.pick(coloredPool).hex, colored: false, jump: false };
         const best = cands.reduce((a, b) => a.k > b.k ? a : b);
-        return { hex: best.hex, colored: false };
+        return { hex: best.hex, colored: false, jump: false };
       } else {
-        // 彩色通路
-        if (coloredPool.length > 0) return { hex: rng.pick(coloredPool).hex, colored: true };
-        if (inkPool.length > 0) return { hex: rng.pick(inkPool).hex, colored: false };
+        // 彩色通路：再分 跳色 30% / 常规彩 70%
+        const jumpCand = (palette.jumpTextColors || [])
+          .map(hex => ({ hex, k: contrastRatio(fill, hex) }))
+          .filter(c => c.k >= TEXT_FALLBACK);
+        const regularCand = coloredPool;
+
+        if (jumpAllowed && jumpCand.length > 0 && rng.next() < JUMP_VS_REGULAR_IN_COLORED) {
+          return { hex: rng.pick(jumpCand).hex, colored: true, jump: true };
+        }
+        if (regularCand.length > 0) return { hex: rng.pick(regularCand).hex, colored: true, jump: false };
+        if (jumpCand.length > 0) return { hex: rng.pick(jumpCand).hex, colored: true, jump: true };
+        if (inkPool.length > 0) return { hex: rng.pick(inkPool).hex, colored: false, jump: false };
         const best = cands.reduce((a, b) => a.k > b.k ? a : b);
-        return { hex: best.hex, colored: best.bucket !== 'ink' };
+        return { hex: best.hex, colored: best.bucket !== 'ink', jump: false };
       }
     }
 
-    // 深色纸：保持降级逻辑，不做彩色分流，不计入彩色字母配额
+    // 深色纸：保持降级逻辑，不做彩色/跳色分流
     let qualified = cands.filter(c => c.k >= threshold);
     if (qualified.length === 0) qualified = [cands.reduce((a, b) => a.k > b.k ? a : b)];
-    return { hex: rng.pick(qualified).hex, colored: false };
+    return { hex: rng.pick(qualified).hex, colored: false, jump: false };
   }
 
   /**
@@ -285,13 +309,13 @@ export function createColorScheme(seed) {
         if (!best || k > best.k) best = { fill, text, k };
       }
     }
-    if (best.k < TEXT_FALLBACK) return { ...FALLBACK, colored: false };
+    if (best.k < TEXT_FALLBACK) return { ...FALLBACK, colored: false, jump: false };
     const { hex: stroke } = pickStroke(palette, best.fill, best.text, createRng(hashString(`${colorSeed}:best`)));
-    return { fill: best.fill, text: best.text, stroke, colored: false };
+    return { fill: best.fill, text: best.text, stroke, colored: false, jump: false };
   }
 
   /** 抽一个纸片配色 */
-  function sample(visibleIndex, prevVisible, seedTag, applyConstraints, accentAllowed, coloredAllowed) {
+  function sample(visibleIndex, prevVisible, seedTag, applyConstraints, accentAllowed, coloredAllowed, jumpAllowed) {
     const groupIndex = Math.floor(visibleIndex / 4);
     const palette = paletteForGroup(groupIndex);
     const pieceSeed = hashString(`${colorSeed}:${visibleIndex * 997}${seedTag}`);
@@ -301,9 +325,11 @@ export function createColorScheme(seed) {
 
       const fillIdx = pickFillIndex(stream('fill'), accentAllowed);
       const fill = palette.fills[fillIdx];
-      const textPick = pickText(palette, fill, stream('text'), coloredAllowed);
+      const textPick = pickText(palette, fill, stream('text'), coloredAllowed, jumpAllowed);
       const strokePick = pickStroke(palette, fill, textPick.hex, stream('stroke'));
       const textThreshold = textThresholdFor(palette, fill);
+      // 彩色字/跳色字不要求墨黑级的 4.5，放宽到 3.0
+      const effectiveThreshold = (textPick.colored || textPick.jump) ? TEXT_FALLBACK : textThreshold;
 
       // 漂移（三色独立子流）
       const drifted = {
@@ -314,7 +340,7 @@ export function createColorScheme(seed) {
 
       // 漂移后若跌出原档位，依次撤销颜色漂移
       let resolved = null;
-      if (meetsTier(drifted.fill, drifted.text, drifted.stroke, strokePick.tier, textThreshold)) {
+      if (meetsTier(drifted.fill, drifted.text, drifted.stroke, strokePick.tier, effectiveThreshold)) {
         resolved = drifted;
       } else {
         const reverts = [
@@ -323,7 +349,7 @@ export function createColorScheme(seed) {
           { ...drifted, stroke: strokePick.hex },        // 撤销描边漂移
           { fill, text: textPick.hex, stroke: strokePick.hex } // 全部撤销
         ];
-        resolved = reverts.find(c => meetsTier(c.fill, c.text, c.stroke, strokePick.tier, textThreshold)) || null;
+        resolved = reverts.find(c => meetsTier(c.fill, c.text, c.stroke, strokePick.tier, effectiveThreshold)) || null;
       }
       if (!resolved) continue;
 
@@ -332,10 +358,10 @@ export function createColorScheme(seed) {
         continue;
       }
 
-      return { ...resolved, accent: fillIdx === ACCENT_POSITION, colored: textPick.colored };
+      return { ...resolved, accent: fillIdx === ACCENT_POSITION, colored: textPick.colored, jump: textPick.jump };
     }
 
-    return { ...bestCombo(palette), accent: false, colored: false };
+    return { ...bestCombo(palette), accent: false, colored: false, jump: false };
   }
 
   return {
@@ -353,23 +379,27 @@ export function createColorScheme(seed) {
       const accentAllowed = accentInGroup < GROUP_ACCENT_MAX &&
         recentAccentCount < RECENT_ACCENT_MAX;
       const coloredAllowed = coloredTextInGroup < GROUP_COLORED_TEXT_MAX;
+      const recentJumpCount = recentJumps.reduce((n, b) => n + (b ? 1 : 0), 0);
+      const jumpAllowed = recentJumpCount < RECENT_JUMP_MAX;
 
-      const colors = sample(visibleIndex, prevVisible, '', true, accentAllowed, coloredAllowed);
+      const colors = sample(visibleIndex, prevVisible, '', true, accentAllowed, coloredAllowed, jumpAllowed);
       if (colors.accent) accentInGroup++;
       recentAccents.push(colors.accent);
       if (colors.colored) coloredTextInGroup++;
+      recentJumps.push(colors.jump);
       if (recentAccents.length > RECENT_WINDOW - 1) recentAccents.shift();
+      if (recentJumps.length > RECENT_JUMP_WINDOW - 1) recentJumps.shift();
 
-      const { accent, colored, ...out } = colors;
+      const { accent, colored, jump, ...out } = colors;
       return out;
     },
 
     /**
      * 标点纸片的配色：当前组 + 当前序号，
-     * 不推进序号、不参与相邻去重、不影响强调色窗口统计和彩色字母配额。
+     * 不推进序号、不参与相邻去重、不影响强调色窗口统计和彩色字母配额、不影响跳色窗口。
      */
     getMarkColors(visibleIndex) {
-      const { accent, colored, ...out } = sample(visibleIndex, null, ':mark', false, true, true);
+      const { accent, colored, jump, ...out } = sample(visibleIndex, null, ':mark', false, true, true, true);
       return out;
     }
   };
