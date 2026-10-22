@@ -143,7 +143,7 @@ function computeLayoutWithFontSize(p) {
     const glyphOy = real.oy;
 
     // 生成纸片（样式 RNG）
-    const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, styleRng, unit.isPunct, unit.text, fontCss, fontSize, strokeWEarly);
+    const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, styleRng, unit.isPunct, unit.text, fontCss, fontSize, strokeWEarly, glyphOx, glyphOy);
 
     items.push({ unit, styleRng, layoutRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: idx, glyphOx, glyphOy, strokeW: strokeWEarly, spaceCount: 0, leadingSpaces: pendingLeading });
     pendingLeading = 0;

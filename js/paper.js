@@ -320,16 +320,21 @@ function applyTear(corners, tearKey, rng, charSize, safeBox = null) {
  * @param {boolean} isPunct - smaller padding for punctuation
  * @returns {object} { path, bounds:{w,h}, center, type, tear, textOffset }
  */
-export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, rng, isPunct = false, text = '', fontCss = '', fontSize = 0, strokeW = 0) {
+export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, rng, isPunct = false, text = '', fontCss = '', fontSize = 0, strokeW = 0, ox = 0, oy = 0) {
   // ── glyphCutout: paper hugs the glyph outline with thick padding ──
   // 旋转不在此处理——渲染阶段 mask 和文字一起旋转，相对位置不变
   // bounds 用 mask 实际非透明像素边界，不用整个画布尺寸
+  // 关键：画布按字形紧 bbox 定尺寸，但 textBaseline='middle' 定位的是字体 em 中心，
+  // 与字形 bbox 中心有 (ox, oy) 偏移。必须用 (cw/2 - ox, ch/2 - oy) 让字形 bbox 居中，
+  // 否则粗描边会顶到画布边缘被裁平。
   if (shapeType === 'glyphCutout' && text && fontCss) {
     const pad = fontSize * TH.glyphCutoutPad;
     const maskPad = Math.max(pad, (strokeW || 0) / 2) + 3;
     const extraPad = maskPad + 8;
     const cw = Math.ceil(textWidth + extraPad * 2);
     const ch = Math.ceil(textHeight + extraPad * 2);
+    const tx = cw / 2 - ox;
+    const ty = ch / 2 - oy;
     const mask = document.createElement('canvas');
     mask.width = cw;
     mask.height = ch;
@@ -344,11 +349,11 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     mctx.fillStyle = '#000';
     if (strokeW > 0) {
       mctx.lineWidth = strokeW;
-      mctx.strokeText(text, cw / 2, ch / 2);
+      mctx.strokeText(text, tx, ty);
     }
     mctx.lineWidth = maskPad * 2;
-    mctx.strokeText(text, cw / 2, ch / 2);
-    mctx.fillText(text, cw / 2, ch / 2);
+    mctx.strokeText(text, tx, ty);
+    mctx.fillText(text, tx, ty);
 
     // 扫描 mask 实际边界，得到 bounds
     const imgData = mctx.getImageData(0, 0, cw, ch).data;
@@ -371,9 +376,9 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     const boundsW = maxX - minX + 1;
     const boundsH = maxY - minY + 1;
 
-    // 文字在裁剪后 bounds 中的实际位置 = mask 中心 - maskOffset
-    const centerX = cw / 2 - minX;
-    const centerY = ch / 2 - minY;
+    // 文字在裁剪后 bounds 中的绘制位置 = 文字在 mask 中的坐标 - maskOffset
+    const centerX = tx - minX;
+    const centerY = ty - minY;
 
     return {
       path: null,
