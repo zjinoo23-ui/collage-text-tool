@@ -1,5 +1,5 @@
 // palettes.js - Color palette system (v3)
-// 规则：明亮复古纸片——浅色底片为主、深色文字、强调色少量点缀
+// 规则：复古纸片——旧纸底色为主、深色文字、少量强调色点缀
 
 import { createRng, hashString } from './rng.js';
 
@@ -7,60 +7,60 @@ const ALGORITHM_VERSION = 'collage-color-v3';
 
 const PALETTES = [
   {
-    id: 'retro-magazine',
-    name: '复古杂志原色',
-    fills: ['#FFF0A8', '#FFB7D5', '#A8DDF0', '#B8E6C5', '#FFC18C'],
-    textColors: ['#171717', '#E63946', '#1769AA'],
-    strokeColors: ['#FFF8E8', '#202020']
+    id: 'newsprint',
+    name: '晨报新闻纸',
+    fills: ['#F0E6CF', '#E5DAC0', '#D8A08C', '#B85C5C', '#A8B8A6'],
+    textColors: ['#26261F', '#F7F1E0', '#9E3B42'],
+    strokeColors: ['#FFF8EA', '#3A342C']
   },
   {
-    id: 'vivid-pop',
-    name: '鲜艳波普',
-    fills: ['#FFE45E', '#FF9CCB', '#85D9F2', '#FFAD82', '#B9E86B'],
-    textColors: ['#F12B64', '#242424', '#6A35C8'],
-    strokeColors: ['#FFF9E9', '#202020']
+    id: 'faded-poster',
+    name: '褪色海报',
+    fills: ['#EFE3C8', '#E7CF9A', '#D9B45E', '#B5533F', '#A39A6C'],
+    textColors: ['#29251E', '#F8F1DF', '#8C3B2A'],
+    strokeColors: ['#FDF6E6', '#3E352B']
   },
   {
-    id: 'candy-print',
-    name: '糖果印刷',
-    fills: ['#FFC1DC', '#C4B7FF', '#A6E8F0', '#FFE18A', '#FFB99B'],
-    textColors: ['#D92F78', '#183F83', '#F04D2D'],
-    strokeColors: ['#FFF8E8', '#202020']
+    id: 'aged-magazine',
+    name: '旧杂志',
+    fills: ['#EDE2CE', '#E6B9A8', '#9AAEC0', '#B46A70', '#A6B2A0'],
+    textColors: ['#262422', '#F6EFE2', '#7E4849'],
+    strokeColors: ['#FBF5E8', '#373430']
   },
   {
-    id: 'classic-kids',
-    name: '经典儿童杂志',
-    fills: ['#FFF58A', '#FFCA72', '#FFB4C8', '#B9F0D0', '#A9E5F7'],
-    textColors: ['#E83E36', '#193C79', '#187653'],
-    strokeColors: ['#FFF9E9', '#202020']
+    id: 'paper-trove',
+    name: '纸堆',
+    fills: ['#EBDCC0', '#F2E7CD', '#D19A7E', '#5A4438', '#A9B8A4'],
+    textColors: ['#26211C', '#F5ECDA', '#B0644A'],
+    strokeColors: ['#FBF3E0', '#3A2F27']
   },
   {
-    id: 'clash-poster',
-    name: '撞色海报',
-    fills: ['#C8F1E5', '#A9E4F5', '#FFF0A3', '#B7C9FF', '#FFD0B5'],
-    textColors: ['#EA315B', '#292929', '#0E7892'],
-    strokeColors: ['#FFF9E9', '#202020']
+    id: 'worn-books',
+    name: '旧书',
+    fills: ['#EFE3C4', '#E7DCC3', '#A8544A', '#3E4A5E', '#A29A6B'],
+    textColors: ['#232323', '#F2EAD8', '#7E4A41'],
+    strokeColors: ['#F9F2E1', '#2E2B28']
   },
   {
-    id: 'retro-candy-wrap',
-    name: '复古糖果包装',
-    fills: ['#FFE6A1', '#F7B8C8', '#A9D6E8', '#C9E2A3', '#F5C18E'],
-    textColors: ['#D52E3F', '#174F9B', '#6F3697'],
-    strokeColors: ['#FFF8E8', '#202020']
+    id: 'garage-sale',
+    name: '旧货摊',
+    fills: ['#EFE5CE', '#E2D4B4', '#C96A5E', '#D9B569', '#9FB6AE'],
+    textColors: ['#2A2620', '#F7F0DF', '#A0493C'],
+    strokeColors: ['#FCF5E6', '#37322A']
   },
   {
-    id: 'bright-juice',
-    name: '明快果汁',
-    fills: ['#FFD3A5', '#FFB5B0', '#D7E99B', '#A9E7D8', '#FFE991'],
-    textColors: ['#F04B26', '#16664D', '#B72F73'],
-    strokeColors: ['#FFF9E9', '#202020']
+    id: 'library-cards',
+    name: '档案卡',
+    fills: ['#F0E8D4', '#E4DAC2', '#C0786E', '#4A3F36', '#8FA5B4'],
+    textColors: ['#252525', '#F4EEDF', '#95534A'],
+    strokeColors: ['#FAF4E5', '#35302A']
   },
   {
-    id: 'print-lab',
-    name: '彩色印刷实验室',
-    fills: ['#FFD8ED', '#C7C0FF', '#A8E8FF', '#FFF09A', '#B8F1B0'],
-    textColors: ['#EC287B', '#3D32A1', '#E64A27'],
-    strokeColors: ['#FFF9E9', '#202020']
+    id: 'field-notes',
+    name: '野外笔记',
+    fills: ['#EDE2C8', '#E6D9B6', '#9AA878', '#3E4A3A', '#B05A4E'],
+    textColors: ['#25231E', '#F4EDDB', '#8A4638'],
+    strokeColors: ['#F9F2E2', '#33302A']
   }
 ];
 
