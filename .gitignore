@@ -12,3 +12,6 @@ desktop.ini
 # Logs
 *.log
 .uploads/
+
+# 本地生成的示例图，不进仓库
+samples/
