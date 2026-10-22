@@ -109,7 +109,7 @@ function computeLayoutWithFontSize(p) {
     const hasStrokeEarly = styleRng.chance(0.45);
     const strokeRatio = hasStrokeEarly ? styleRng.range(0.08, 0.22) : 0;
 
-    // 配色（拼贴配色 v2）：
+    // 配色（拼贴配色 v3）：
     // - 可见字素：按 visibleIndex 取色，每 4 个字素换一个局部配色组
     // - 标点：用当前组的调色板，不推进序号、不参与相邻去重
     const chars = Array.from(unit.text);

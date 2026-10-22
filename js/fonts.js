@@ -51,9 +51,15 @@ export function getFontCss(index, fontSize) {
 export function waitForFonts() {
   if (fontsReady) return Promise.resolve();
   if (typeof document !== 'undefined' && document.fonts) {
+    // 主动加载每个字体：canvas 绘制不会可靠触发 @font-face 加载，
+    // 仅等 document.fonts.ready 会让未请求过的字体一直用系统兜底字体。
+    const loads = FONTS.map(f =>
+      document.fonts.load(`${f.weight} 64px "${f.family}"`, '拼贴Aa123')
+        .catch(() => null)
+    );
     return Promise.race([
-      document.fonts.ready.then(() => { fontsReady = true; }),
-      new Promise(resolve => setTimeout(resolve, 10000))
+      Promise.all(loads).then(() => { fontsReady = true; }),
+      new Promise(resolve => setTimeout(resolve, 15000))
     ]);
   }
   return Promise.resolve();
