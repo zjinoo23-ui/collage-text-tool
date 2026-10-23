@@ -1,3 +1,18 @@
+/* ===== Header fonts（直接引用本地字体，不做系统字体回退） ===== */
+@font-face {
+  font-family: 'SmileySans-Oblique-2';
+  src: url('../assets/fonts/SmileySans-Oblique-2.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Anton-Regular';
+  src: url('../assets/fonts/Anton-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
 /* ===== Reset & Base ===== */
 *, *::before, *::after {
   margin: 0;
@@ -39,26 +54,36 @@ body {
 }
 
 .app-header {
-  padding: 24px 20px 16px;
+  padding: 28px 20px 22px;
   border-bottom: 1px solid var(--border);
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
 }
 
 .app-title {
-  font-size: 22px;
-  font-weight: 700;
+  font-family: 'SmileySans-Oblique-2';
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 1.1;
   letter-spacing: 2px;
   color: var(--text);
+  /* 抵掉末字后的字距，保证视觉居中 */
+  text-indent: 2px;
 }
 
 .app-subtitle {
-  font-size: 10px;
+  font-family: 'Anton-Regular';
+  font-size: 26px;
   font-weight: 400;
-  letter-spacing: 3px;
+  line-height: 1.2;
+  letter-spacing: 0.2em;
   color: var(--accent);
   text-transform: uppercase;
+  /* 同上，补偿末字后多出的字距 */
+  text-indent: 0.2em;
 }
 
 .app-main {
