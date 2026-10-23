@@ -315,25 +315,33 @@ textarea {
   width: 100%;
   padding: 10px 12px;
   background-color: var(--panel);
-  border: 1px solid rgba(38, 38, 31, 0.1);
+  border: 1px solid var(--card);
   border-radius: 8px;
   font-size: 14px;
   line-height: 1.5;
   color: var(--ink);
   text-align: left;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* 凸起纸片：外投影，不是纸槽的内凹 */
+  box-shadow: 0 2px 8px var(--shadow);
   cursor: pointer;
-  transition: background-color 0.16s, border-color 0.16s, box-shadow 0.16s;
+  transition: background-color 0.16s, box-shadow 0.16s, border-color 0.16s;
 }
 
 .dropdown-trigger:hover {
   background-color: #F6EFDD;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+}
+
+.dropdown-trigger:active,
+.dropdown.open .dropdown-trigger {
+  background-color: #EDE4CE;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.18);
 }
 
 .dropdown-trigger:focus-visible {
   outline: none;
   border-color: var(--brick);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 2px var(--brick);
+  box-shadow: 0 2px 8px var(--shadow), 0 0 0 2px var(--brick);
 }
 
 .dropdown-value {
@@ -353,28 +361,26 @@ textarea {
   transition: transform 0.18s;
 }
 
-.dropdown.open .dropdown-trigger {
-  border-color: var(--brick);
-}
-
 .dropdown.open .dropdown-chevron {
   transform: rotate(180deg);
 }
 
-/* 菜单：圆角纸片面板 + 滚动，形制参考原生下拉 */
+/* 菜单：独立弹出的纸卡（米纸底 + 卡片级投影） */
 .dropdown-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 4px);
   left: 0;
-  right: 0;
   z-index: 40;
+  width: max-content;
+  min-width: 100%;
+  max-width: 240px;
   max-height: 232px;
   overflow-y: auto;
   padding: 6px;
-  background: var(--panel);
-  border: 1px solid rgba(38, 38, 31, 0.1);
+  background: var(--card);
+  border: 1px solid rgba(38, 38, 31, 0.08);
   border-radius: 12px;
-  box-shadow: 0 2px 8px var(--shadow);
+  box-shadow: 0 0 4px var(--shadow);
   animation: dropdown-in 0.14s ease-out;
 }
 
@@ -399,12 +405,14 @@ textarea {
 }
 
 .dropdown-item {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   width: 100%;
-  padding: 8px 12px;
+  min-height: 36px;
+  padding: 8px 12px 8px 24px;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -412,28 +420,32 @@ textarea {
   line-height: 1.4;
   color: var(--ink);
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
   transition: background-color 0.14s;
 }
 
 .dropdown-item:hover {
-  background-color: var(--paper-light);
+  background-color: var(--panel);
 }
 
 .dropdown-item.selected {
-  background-color: var(--card);
+  background-color: var(--panel);
   font-family: var(--font-ui-heavy);
   font-weight: 700;
 }
 
-/* 选中项赭黄点缀 */
-.dropdown-item.selected::after {
+/* 选中项左侧赭黄圆点标记 */
+.dropdown-item.selected::before {
   content: '';
+  position: absolute;
+  left: 10px;
+  top: 50%;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--ochre);
-  flex-shrink: 0;
+  transform: translateY(-50%);
 }
 
 
