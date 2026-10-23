@@ -56,6 +56,7 @@ in Chinese</textarea>
           <div class="control-group">
             <span class="control-label">成片单位</span>
             <div class="segmented-control" id="segmentMode">
+              <span class="seg-indicator" aria-hidden="true"></span>
               <button class="seg-btn" data-value="char">逐字</button>
               <button class="seg-btn active" data-value="mixed">混合</button>
             </div>
@@ -64,6 +65,7 @@ in Chinese</textarea>
           <div class="control-group">
             <span class="control-label">对齐方式</span>
             <div class="segmented-control" id="alignMode">
+              <span class="seg-indicator" aria-hidden="true"></span>
               <button class="seg-btn" data-value="left">左对齐</button>
               <button class="seg-btn active" data-value="center">居中</button>
               <button class="seg-btn" data-value="right">右对齐</button>
@@ -122,22 +124,36 @@ in Chinese</textarea>
 
           <div class="control-row">
             <div class="control-group half">
-              <label class="control-label" for="sizeSelect">尺寸</label>
-              <select id="sizeSelect" class="select">
-                <option value="square">1:1 正方形</option>
-                <option value="portrait" selected>3:4 竖版</option>
-                <option value="wallpaper">9:19.5 手机壁纸</option>
-              </select>
+              <span class="control-label">尺寸</span>
+              <div class="dropdown">
+                <button type="button" class="dropdown-trigger" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="dropdown-value">3:4 竖版</span>
+                  <span class="dropdown-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="dropdown-menu" role="listbox" aria-label="尺寸" hidden></div>
+                <select id="sizeSelect" class="native-select" aria-hidden="true" tabindex="-1">
+                  <option value="square">1:1 正方形</option>
+                  <option value="portrait" selected>3:4 竖版</option>
+                  <option value="wallpaper">9:19.5 手机壁纸</option>
+                </select>
+              </div>
             </div>
             <div class="control-group half">
-              <label class="control-label" for="bgSelect">背景</label>
-              <select id="bgSelect" class="select">
-                <option value="notebook" selected>笔记本纸</option>
-                <option value="dotgrid">点线纸</option>
-                <option value="white">白纸</option>
-                <option value="kraft">牛皮纸</option>
-                <option value="transparent">透明 PNG</option>
-              </select>
+              <span class="control-label">背景</span>
+              <div class="dropdown">
+                <button type="button" class="dropdown-trigger" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="dropdown-value">笔记本纸</span>
+                  <span class="dropdown-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="dropdown-menu" role="listbox" aria-label="背景" hidden></div>
+                <select id="bgSelect" class="native-select" aria-hidden="true" tabindex="-1">
+                  <option value="notebook" selected>笔记本纸</option>
+                  <option value="dotgrid">点线纸</option>
+                  <option value="white">白纸</option>
+                  <option value="kraft">牛皮纸</option>
+                  <option value="transparent">透明 PNG</option>
+                </select>
+              </div>
             </div>
           </div>
 

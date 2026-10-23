@@ -82,6 +82,111 @@ function getParams() {
   };
 }
 
+// === 纸片下拉：原生 select 只负责存值，外观自绘 ===
+const dropdowns = [];
+
+document.querySelectorAll('.dropdown').forEach(root => {
+  const select = root.querySelector('select');
+  const trigger = root.querySelector('.dropdown-trigger');
+  const valueEl = root.querySelector('.dropdown-value');
+  const menu = root.querySelector('.dropdown-menu');
+
+  const items = [...select.options].map(opt => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'dropdown-item';
+    btn.setAttribute('role', 'option');
+    btn.dataset.value = opt.value;
+    btn.textContent = opt.text;
+    btn.addEventListener('click', () => {
+      if (select.value !== opt.value) {
+        select.value = opt.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      close();
+    });
+    menu.appendChild(btn);
+    return btn;
+  });
+
+  function syncSelection() {
+    const opt = select.selectedOptions[0];
+    valueEl.textContent = opt ? opt.text : '';
+    items.forEach(it => {
+      const on = it.dataset.value === select.value;
+      it.classList.toggle('selected', on);
+      it.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+
+  function open() {
+    closeAllDropdowns(api);
+    root.classList.add('open');
+    trigger.setAttribute('aria-expanded', 'true');
+    menu.hidden = false;
+  }
+
+  function close() {
+    root.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+    menu.hidden = true;
+  }
+
+  const api = { root, close };
+
+  trigger.addEventListener('click', () => {
+    if (root.classList.contains('open')) close();
+    else open();
+  });
+
+  select.addEventListener('change', syncSelection);
+
+  dropdowns.push(api);
+  syncSelection();
+});
+
+function closeAllDropdowns(except) {
+  dropdowns.forEach(d => {
+    if (d.root !== except) d.close();
+  });
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.dropdown')) closeAllDropdowns(null);
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeAllDropdowns(null);
+});
+
+// === 分段选择：色块滑动定位 ===
+const segmentContainers = [
+  document.getElementById('segmentMode'),
+  document.getElementById('alignMode')
+];
+
+function syncSegIndicator(container) {
+  const indicator = container.querySelector('.seg-indicator');
+  const active = container.querySelector('.seg-btn.active');
+  if (!indicator || !active) return;
+  indicator.style.width = active.offsetWidth + 'px';
+  indicator.style.transform = `translateX(${active.offsetLeft}px)`;
+}
+
+segmentContainers.forEach(syncSegIndicator);
+
+// === 滑块：左侧砖红填充比例 ===
+const sliders = [scaleSlider, randomSlider, gapSlider, lineGapSlider];
+
+function syncSliderFill(el) {
+  const min = Number(el.min) || 0;
+  const max = Number(el.max) || 100;
+  const pct = max > min ? ((Number(el.value) - min) / (max - min)) * 100 : 0;
+  el.style.setProperty('--fill', pct + '%');
+}
+
+sliders.forEach(syncSliderFill);
+
 function render() {
   // 字体未就绪时不渲染，避免任何系统字体回退
   if (!areFontsReady()) return;
@@ -101,6 +206,8 @@ function render() {
 
   // Draw scaled preview
   const previewWrapper = previewCanvas.parentElement;
+  // 外框比例跟随所选尺寸，纸边留白保持 3:4 时的一致观感
+  previewWrapper.style.aspectRatio = `${size.w} / ${size.h}`;
   let maxW = previewWrapper.clientWidth - 4;
   let maxH = previewWrapper.clientHeight - 4;
 
@@ -144,6 +251,7 @@ segmentModeBtns.forEach(btn => {
     segmentModeBtns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.segmentMode = btn.dataset.value;
+    syncSegIndicator(btn.parentElement);
     debouncedRender();
   });
 });
@@ -154,6 +262,7 @@ alignModeBtns.forEach(btn => {
     alignModeBtns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.align = btn.dataset.value;
+    syncSegIndicator(btn.parentElement);
     debouncedRender();
   });
 });
@@ -162,6 +271,7 @@ alignModeBtns.forEach(btn => {
 scaleSlider.addEventListener('input', () => {
   state.scale = parseInt(scaleSlider.value) / 100;
   scaleValue.textContent = scaleSlider.value + '%';
+  syncSliderFill(scaleSlider);
   debouncedRender();
 });
 
@@ -169,6 +279,7 @@ scaleSlider.addEventListener('input', () => {
 randomSlider.addEventListener('input', () => {
   state.randomAmount = parseInt(randomSlider.value);
   randomValue.textContent = randomSlider.value + '%';
+  syncSliderFill(randomSlider);
   debouncedRender();
 });
 
@@ -176,6 +287,7 @@ randomSlider.addEventListener('input', () => {
 gapSlider.addEventListener('input', () => {
   state.gapScale = parseInt(gapSlider.value) / 100;
   gapValue.textContent = gapSlider.value + '%';
+  syncSliderFill(gapSlider);
   debouncedRender();
 });
 
@@ -183,6 +295,7 @@ gapSlider.addEventListener('input', () => {
 lineGapSlider.addEventListener('input', () => {
   state.lineGapScale = parseInt(lineGapSlider.value) / 100;
   lineGapValue.textContent = lineGapSlider.value + '%';
+  syncSliderFill(lineGapSlider);
   debouncedRender();
 });
 
@@ -223,6 +336,7 @@ downloadBtn.addEventListener('click', () => {
 
 // Window resize
 window.addEventListener('resize', () => {
+  segmentContainers.forEach(syncSegIndicator);
   debouncedRender();
 });
 
@@ -230,4 +344,7 @@ window.addEventListener('resize', () => {
 render();
 preloadAssets().then(() => render());
 preloadBackgrounds().then(() => render());
-waitForFonts().then(() => render());
+waitForFonts().then(() => {
+  segmentContainers.forEach(syncSegIndicator);
+  render();
+});
