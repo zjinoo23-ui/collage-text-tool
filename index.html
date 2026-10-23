@@ -26,10 +26,24 @@
 
       <!-- Controls -->
       <section class="controls-section">
+        <!-- Seed -->
+        <div class="control-group">
+          <label class="control-label" for="seedInput">
+            种子号
+          </label>
+          <div class="seed-row">
+            <input type="number" id="seedInput" class="seed-input" value="9029">
+            <button id="regenBtn" class="btn btn-secondary">换种子</button>
+          </div>
+        </div>
+
         <!-- Text input -->
         <div class="control-group">
           <label class="control-label" for="textInput">输入文字</label>
-          <textarea id="textInput" class="text-input" rows="3" placeholder="输入文字，生成拼贴…">你好，Hello World！</textarea>
+          <textarea id="textInput" class="text-input" rows="4" placeholder="输入文字，生成拼贴…">让我们
+拼中文
+Let's Collage 
+in Chinese</textarea>
         </div>
 
         <!-- Segment mode -->
@@ -45,8 +59,8 @@
         <div class="control-group">
           <label class="control-label">对齐方式</label>
           <div class="segmented-control" id="alignMode">
-            <button class="seg-btn active" data-value="left">左对齐</button>
-            <button class="seg-btn" data-value="center">居中</button>
+            <button class="seg-btn" data-value="left">左对齐</button>
+            <button class="seg-btn active" data-value="center">居中</button>
             <button class="seg-btn" data-value="right">右对齐</button>
           </div>
         </div>
@@ -54,9 +68,9 @@
         <!-- Global scale -->
         <div class="control-group">
           <label class="control-label" for="scaleSlider">
-            字号缩放 <span id="scaleValue" class="value-label">100%</span>
+            字号缩放 <span id="scaleValue" class="value-label">200%</span>
           </label>
-          <input type="range" id="scaleSlider" class="slider" min="50" max="200" value="100" step="5">
+          <input type="range" id="scaleSlider" class="slider" min="50" max="300" value="200" step="5">
         </div>
 
         <!-- Randomness -->
@@ -97,31 +111,20 @@
           <div class="control-group half">
             <label class="control-label" for="sizeSelect">尺寸</label>
             <select id="sizeSelect" class="select">
-              <option value="square">正方形 1:1</option>
+              <option value="square">1:1 正方形</option>
               <option value="portrait" selected>3:4 竖版</option>
-              <option value="wallpaper">手机壁纸</option>
+              <option value="wallpaper">9:19.5 手机壁纸</option>
             </select>
           </div>
           <div class="control-group half">
             <label class="control-label" for="bgSelect">背景</label>
             <select id="bgSelect" class="select">
-              <option value="white" selected>白纸</option>
-              <option value="notebook">笔记本纸</option>
+              <option value="notebook" selected>笔记本纸</option>
               <option value="dotgrid">点线纸</option>
+              <option value="white">白纸</option>
               <option value="kraft">牛皮纸</option>
               <option value="transparent">透明 PNG</option>
             </select>
-          </div>
-        </div>
-
-        <!-- Seed -->
-        <div class="control-group">
-          <label class="control-label" for="seedInput">
-            种子号
-          </label>
-          <div class="seed-row">
-            <input type="number" id="seedInput" class="seed-input" value="42">
-            <button id="regenBtn" class="btn btn-secondary">换种子</button>
           </div>
         </div>
 

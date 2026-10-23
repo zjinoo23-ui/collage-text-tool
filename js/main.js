@@ -32,15 +32,15 @@ const exportCanvas = document.getElementById('exportCanvas');
 // State
 const state = {
   segmentMode: 'mixed',
-  align: 'left',
-  scale: 1.0,
+  align: 'center',
+  scale: 2.0,
   randomAmount: 60,
   gapScale: 0.15,
   lineGapScale: 0.55,
   toggles: { color: true, font: true, size: true },
   sizeKey: 'portrait',
-  bgType: 'white',
-  seed: 42
+  bgType: 'notebook',
+  seed: 9029
 };
 
 let renderTimeout = null;

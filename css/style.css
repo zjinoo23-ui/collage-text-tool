@@ -70,15 +70,12 @@ body {
 /* ===== Preview ===== */
 .preview-section {
   padding: 16px 20px;
-  background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
 }
 
 .preview-wrapper {
   width: 100%;
   aspect-ratio: 3 / 4;
-  background: #fff;
-  border: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
