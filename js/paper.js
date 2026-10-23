@@ -4,6 +4,7 @@
 const TH = {
   glyphCutoutProb: 0.25,  // 字形裁剪的概率（剩余为矩形 0.75）
   glyphCutoutPad: 0.0875, // 字形裁剪的描边厚度（占字号比例）
+  ngon5Prob: 0.35,        // 矩形纸片里 5 边形的概率（剩余为 4 边形）
   // ── 矩形纸片：预防式扇形约束模型 ──
   safeMarginRatio: 0.04, // 安全框边距（占字号比例）
   fanRadiusRatio: 0.12,  // 顶点扇形半径（占字号比例）
@@ -175,14 +176,16 @@ export function measureRealBounds(text, fontCss, fontSize, strokeW = 0) {
 
 /**
  * Classify shape based on glyph features and probabilities.
- * 标点→矩形；否则按概率分配字形裁剪/矩形。
- * @returns {string} 'rect' | 'glyphCutout'
+ * 标点→4gon；否则字形裁剪、5边形、4边形三者选一。
+ * @returns {string} 'glyphCutout' | '5gon' | '4gon'
  */
 export function classifyShape(glyph, rng, isPunct = false) {
-  if (isPunct) return 'rect';
+  if (isPunct) return '4gon';
   const roll = rng.range(0, 1);
   if (roll < TH.glyphCutoutProb) return 'glyphCutout';
-  return 'rect';
+  const rectRoll = (roll - TH.glyphCutoutProb) / (1 - TH.glyphCutoutProb);
+  if (rectRoll < TH.ngon5Prob) return '5gon';
+  return '4gon';
 }
 
 /**
@@ -206,6 +209,65 @@ function buildCorners(fanCorners, fanRadius, rng) {
   const minX = Math.min(...corners.map(c => c.x));
   const minY = Math.min(...corners.map(c => c.y));
   return corners.map(c => ({ x: c.x - minX, y: c.y - minY }));
+}
+
+/**
+ * 在四边形的一条边上插入第 5 个顶点，凸向外侧。
+ *
+ * 核心：用边段向量推导几何，不依赖全局方向假设。
+ *  对每条边 (from → to)：
+ *    edge = to - from，edgeLen = |edge|
+ *    edgeDir = edge / edgeLen          （沿边方向，从 from 到 to）
+ *    outerN = rotate+90°(edgeDir)      （边外法线，沿用 applyTear 中的 nx=-dy, ny=dx）
+ *
+ * 算法：
+ *  1. 随机选一条边（0..3）
+ *  2. 在边上取 P：t ∈ [0.3, 0.7] 避开端点，P = from + t * edge
+ *  3. 以 P 为圆心、R/2 为半径，凸向 outerN 方向画半圆
+ *  4. 在半圆内均匀采样：角度 φ ∈ [-π/2, +π/2] 沿 edgeDir 左右
+ *     半径 ρ = sqrt(u) * (R/2)，u ∈ [0,1] 面积均匀
+ *  5. E = P + outerN * cos(φ) * ρ + edgeDir * sin(φ) * ρ
+ *  6. 插入顺序：corners[0..i] + E + corners[i+1..3]
+ *
+ * 这样生成的五边形不自交（凸边外侧插入新顶点保持整体凸性）。
+ */
+function addFifthVertex(corners, fanRadius, rng) {
+  const n = corners.length;  // 预期 4，但按通用 N 实现
+  const edgeIdx = Math.floor(rng.range(0, n));
+  const from = corners[edgeIdx];
+  const to = corners[(edgeIdx + 1) % n];
+
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const edgeLen = Math.sqrt(dx * dx + dy * dy);
+  const edx = dx / edgeLen;   // edgeDir.x
+  const edy = dy / edgeLen;   // edgeDir.y
+  // 外法线：顺时针多边形（TL→TR→BR→BL）rotate -90°
+  // 注意：applyTear 里的 nx=-dy/len, ny=dx/len 是**内法线**
+  // 我们的半圆要凸向纸片外，所以必须用外法线：(dy/len, -dx/len)
+  const nx = dy / edgeLen;
+  const ny = -dx / edgeLen;
+
+  // 在边上取 P，避开端点
+  const t = rng.range(0.3, 0.7);
+  const Px = from.x + dx * t;
+  const Py = from.y + dy * t;
+
+  // 半圆参数
+  const Rhalf = fanRadius / 2;
+  const phi = rng.range(-Math.PI / 2, Math.PI / 2);
+  const u = rng.range(0, 1);
+  const rho = Math.sqrt(u) * Rhalf;
+
+  // 向量分解：沿外法线 (cos φ) + 沿边方向 (sin φ)
+  const Ex = Px + nx * Math.cos(phi) * rho + edx * Math.sin(phi) * rho;
+  const Ey = Py + ny * Math.cos(phi) * rho + edy * Math.sin(phi) * rho;
+
+  // 插入到 corners[edgeIdx] 和 corners[edgeIdx+1] 之间
+  const result = corners.slice(0, edgeIdx + 1);
+  result.push({ x: Ex, y: Ey });
+  result.push(...corners.slice(edgeIdx + 1));
+  return result;
 }
 
 /**
@@ -392,8 +454,8 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     };
   }
 
-  // ── 矩形：预防式扇形约束模型 ──
-  // ① 文本框 → ② 安全框 → ③ 扇形(安全框四角) → ④ 顶点在扇形内随机 → 纸片
+  // ── 多边形（4gon / 5gon）：预防式扇形约束模型 ──
+  // ① 文本框 → ② 安全框 → ③ 扇形(安全框四角) → ④ 顶点在扇形内随机 → ⑤ (5gon 额外：边上插顶点)
   const strokePad = strokeW > 0 ? 2 : 0;
   const safeMargin = fontSize * TH.safeMarginRatio + strokePad;
   const fanR = fontSize * TH.fanRadiusRatio;
@@ -410,7 +472,12 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     { x: -safeMargin, y: sh + safeMargin },       // BL
   ];
 
-  const corners = buildCorners(fanCorners, fanR, rng);
+  let corners = buildCorners(fanCorners, fanR, rng);
+
+  // 5gon：在四边形某条边上插入第 5 个顶点
+  if (shapeType === '5gon') {
+    corners = addFifthVertex(corners, fanR, rng);
+  }
 
   let minX = Math.min(...corners.map(c => c.x));
   let minY = Math.min(...corners.map(c => c.y));
@@ -437,7 +504,7 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     path,
     bounds: { w: boundsW, h: boundsH },
     center: { x: cx, y: cy },
-    type: 'rect',
+    type: shapeType,
     tear: tearKey,
     textOffset: { x: cx - textWidth / 2, y: cy - textHeight / 2 }
   };
@@ -450,7 +517,7 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
 export function pickTearStyle(rng, shapeType) {
   if (shapeType === 'glyphCutout') return 'straight';
   const roll = rng.range(0, 1);
-  // rect: balanced distribution
+  // 4gon/5gon：balanced distribution
   if (roll < 0.15) return 'straight';
   if (roll < 0.45) return 'fine';
   if (roll < 0.80) return 'rough';
