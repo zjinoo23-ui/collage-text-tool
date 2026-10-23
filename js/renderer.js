@@ -109,17 +109,22 @@ export function renderToCanvas(params, canvas) {
       ctx.drawImage(tmp, 0, 0);
     } else if (texImg) {
       // 普通形状：底色 + 纹理叠加
+      // 撕裂顶点会向外凸出 bounds（最远约 6.5% 字高），填充范围必须外扩，
+      // 否则外凸部分只留下方黑色投影 → 锯齿边缘出现黑边
+      const pad = Math.max(16, Math.max(bw, bh) * 0.15);
+      const fw = bw + pad * 2;
+      const fh = bh + pad * 2;
       ctx.save();
       ctx.clip(el.paper.path);
       // 第 1 层：底色
       ctx.fillStyle = el.fillColor;
-      ctx.fillRect(0, 0, bw, bh);
+      ctx.fillRect(-pad, -pad, fw, fh);
       // 第 2 层：纹理（正片叠底）
       ctx.globalCompositeOperation = 'multiply';
       const pattern = ctx.createPattern(texImg, 'repeat');
       ctx.fillStyle = pattern;
       ctx.translate(ox, oy);
-      ctx.fillRect(-ox, -oy, bw + Math.abs(ox) + 100, bh + Math.abs(oy) + 100);
+      ctx.fillRect(-pad - ox, -pad - oy, fw, fh);
       ctx.restore();
     } else {
       // 无纹理：纯底色
