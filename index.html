@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#F4EEDF">
   <title>拼贴文字 · Collage Text</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -17,120 +17,133 @@
 
     <!-- Main content -->
     <main class="app-main">
-      <!-- Preview area -->
+      <!-- Preview area：整块一张纸 -->
       <section class="preview-section">
-        <div class="preview-wrapper">
-          <canvas id="previewCanvas"></canvas>
+        <div class="preview-sheet">
+          <div class="preview-wrapper">
+            <canvas id="previewCanvas"></canvas>
+          </div>
         </div>
       </section>
 
       <!-- Controls -->
       <section class="controls-section">
-        <!-- Seed -->
-        <div class="control-group">
-          <label class="control-label" for="seedInput">
-            种子号
-          </label>
-          <div class="seed-row">
-            <input type="number" id="seedInput" class="seed-input" value="9029">
-            <button id="regenBtn" class="btn btn-secondary">换种子</button>
-          </div>
-        </div>
+        <!-- 1. 文字输入 -->
+        <div class="paper-card">
+          <h2 class="card-title">文字输入</h2>
 
-        <!-- Text input -->
-        <div class="control-group">
-          <label class="control-label" for="textInput">输入文字</label>
-          <textarea id="textInput" class="text-input" rows="4" placeholder="输入文字，生成拼贴…">让我们
+          <div class="control-group">
+            <label class="control-label" for="seedInput">种子号</label>
+            <div class="seed-row">
+              <input type="number" id="seedInput" class="seed-input" value="9029">
+              <button id="regenBtn" class="btn btn-secondary">换种子</button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label class="control-label" for="textInput">输入文字</label>
+            <textarea id="textInput" class="text-input" rows="4" placeholder="输入文字，生成拼贴…">让我们
 拼中文
 Let's Collage 
 in Chinese</textarea>
-        </div>
-
-        <!-- Segment mode -->
-        <div class="control-group">
-          <label class="control-label">成片单位</label>
-          <div class="segmented-control" id="segmentMode">
-            <button class="seg-btn" data-value="char">逐字</button>
-            <button class="seg-btn active" data-value="mixed">混合</button>
           </div>
         </div>
 
-        <!-- Alignment -->
-        <div class="control-group">
-          <label class="control-label">对齐方式</label>
-          <div class="segmented-control" id="alignMode">
-            <button class="seg-btn" data-value="left">左对齐</button>
-            <button class="seg-btn active" data-value="center">居中</button>
-            <button class="seg-btn" data-value="right">右对齐</button>
+        <!-- 2. 排版 -->
+        <div class="paper-card">
+          <h2 class="card-title">排版</h2>
+
+          <div class="control-group">
+            <span class="control-label">成片单位</span>
+            <div class="segmented-control" id="segmentMode">
+              <button class="seg-btn" data-value="char">逐字</button>
+              <button class="seg-btn active" data-value="mixed">混合</button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <span class="control-label">对齐方式</span>
+            <div class="segmented-control" id="alignMode">
+              <button class="seg-btn" data-value="left">左对齐</button>
+              <button class="seg-btn active" data-value="center">居中</button>
+              <button class="seg-btn" data-value="right">右对齐</button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <div class="label-row">
+              <label class="control-label" for="scaleSlider">字号缩放</label>
+              <span id="scaleValue" class="value-label">200%</span>
+            </div>
+            <input type="range" id="scaleSlider" class="slider" min="50" max="300" value="200" step="5">
+          </div>
+
+          <div class="control-group">
+            <div class="label-row">
+              <label class="control-label" for="gapSlider">字间距</label>
+              <span id="gapValue" class="value-label">15%</span>
+            </div>
+            <input type="range" id="gapSlider" class="slider" min="0" max="60" value="15" step="1">
+          </div>
+
+          <div class="control-group">
+            <div class="label-row">
+              <label class="control-label" for="lineGapSlider">行间距</label>
+              <span id="lineGapValue" class="value-label">55%</span>
+            </div>
+            <input type="range" id="lineGapSlider" class="slider" min="0" max="150" value="55" step="1">
           </div>
         </div>
 
-        <!-- Global scale -->
-        <div class="control-group">
-          <label class="control-label" for="scaleSlider">
-            字号缩放 <span id="scaleValue" class="value-label">200%</span>
-          </label>
-          <input type="range" id="scaleSlider" class="slider" min="50" max="300" value="200" step="5">
-        </div>
+        <!-- 3. 随机 -->
+        <div class="paper-card">
+          <h2 class="card-title">随机</h2>
 
-        <!-- Randomness -->
-        <div class="control-group">
-          <label class="control-label" for="randomSlider">
-            随机幅度 <span id="randomValue" class="value-label">60%</span>
-          </label>
-          <input type="range" id="randomSlider" class="slider" min="0" max="100" value="60" step="1">
-        </div>
-
-        <!-- Letter spacing -->
-        <div class="control-group">
-          <label class="control-label" for="gapSlider">
-            字间距 <span id="gapValue" class="value-label">15%</span>
-          </label>
-          <input type="range" id="gapSlider" class="slider" min="0" max="60" value="15" step="1">
-        </div>
-
-        <!-- Line spacing -->
-        <div class="control-group">
-          <label class="control-label" for="lineGapSlider">
-            行间距 <span id="lineGapValue" class="value-label">55%</span>
-          </label>
-          <input type="range" id="lineGapSlider" class="slider" min="0" max="150" value="55" step="1">
-        </div>
-
-        <!-- Toggles -->
-        <div class="control-group toggle-group">
-          <label class="toggle-label">
-            <input type="checkbox" id="toggleSize" checked>
-            <span class="toggle-track"></span>
-            字号随机
-          </label>
-        </div>
-
-        <!-- Size & Background -->
-        <div class="control-row">
-          <div class="control-group half">
-            <label class="control-label" for="sizeSelect">尺寸</label>
-            <select id="sizeSelect" class="select">
-              <option value="square">1:1 正方形</option>
-              <option value="portrait" selected>3:4 竖版</option>
-              <option value="wallpaper">9:19.5 手机壁纸</option>
-            </select>
+          <div class="control-group">
+            <div class="label-row">
+              <label class="control-label" for="randomSlider">随机幅度</label>
+              <span id="randomValue" class="value-label">60%</span>
+            </div>
+            <input type="range" id="randomSlider" class="slider" min="0" max="100" value="60" step="1">
           </div>
-          <div class="control-group half">
-            <label class="control-label" for="bgSelect">背景</label>
-            <select id="bgSelect" class="select">
-              <option value="notebook" selected>笔记本纸</option>
-              <option value="dotgrid">点线纸</option>
-              <option value="white">白纸</option>
-              <option value="kraft">牛皮纸</option>
-              <option value="transparent">透明 PNG</option>
-            </select>
+
+          <div class="control-group toggle-group">
+            <label class="toggle-label">
+              <input type="checkbox" id="toggleSize" checked>
+              <span class="toggle-track"></span>
+              字号随机
+            </label>
           </div>
         </div>
 
-        <!-- Action buttons -->
-        <div class="action-row">
-          <button id="downloadBtn" class="btn btn-primary">下载图片</button>
+        <!-- 4. 输出 -->
+        <div class="paper-card">
+          <h2 class="card-title">输出</h2>
+
+          <div class="control-row">
+            <div class="control-group half">
+              <label class="control-label" for="sizeSelect">尺寸</label>
+              <select id="sizeSelect" class="select">
+                <option value="square">1:1 正方形</option>
+                <option value="portrait" selected>3:4 竖版</option>
+                <option value="wallpaper">9:19.5 手机壁纸</option>
+              </select>
+            </div>
+            <div class="control-group half">
+              <label class="control-label" for="bgSelect">背景</label>
+              <select id="bgSelect" class="select">
+                <option value="notebook" selected>笔记本纸</option>
+                <option value="dotgrid">点线纸</option>
+                <option value="white">白纸</option>
+                <option value="kraft">牛皮纸</option>
+                <option value="transparent">透明 PNG</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button id="downloadBtn" class="btn btn-primary">下载图片</button>
+          </div>
         </div>
       </section>
     </main>
