@@ -204,21 +204,82 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
   font-family: var(--font-ui-heavy);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.05em;
   color: var(--ink);
+  text-align: left;
+  cursor: pointer;
 }
 
-/* 小面积赭黄点缀 */
-.card-title::before {
-  content: '';
-  width: 12px;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--ochre);
+.card-title:focus-visible {
+  outline: none;
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px var(--brick);
+}
+
+/* 折叠标记：展开是减号，折叠时补上竖笔画变成加号 */
+.card-sign {
+  position: relative;
   flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+}
+
+.card-sign::before,
+.card-sign::after {
+  content: '';
+  position: absolute;
+  background: var(--ochre);
+  border-radius: 1px;
+  transition: transform 0.2s ease;
+}
+
+.card-sign::before {
+  left: 0;
+  top: 5px;
+  width: 12px;
+  height: 2px;
+}
+
+.card-sign::after {
+  left: 5px;
+  top: 0;
+  width: 2px;
+  height: 12px;
+  transform: scaleY(0);
+}
+
+.paper-card.collapsed .card-sign::after {
+  transform: scaleY(1);
+}
+
+/* 折叠容器：用行高过渡，展开/收起不跳变 */
+.card-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.24s ease;
+}
+
+.card-body-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.paper-card.collapsed .card-body {
+  grid-template-rows: 0fr;
+}
+
+.paper-card.collapsed {
+  gap: 0;
 }
 
 .control-group {

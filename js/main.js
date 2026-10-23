@@ -243,6 +243,21 @@ function render() {
 
 // === Event listeners ===
 
+// 纸片卡折叠
+document.querySelectorAll('.card-title').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const card = btn.closest('.paper-card');
+    const collapsed = card.classList.toggle('collapsed');
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    // 展开后重新定位分段色块（折叠期间宽度为 0）
+    if (!collapsed) {
+      requestAnimationFrame(() => {
+        card.querySelectorAll('.segmented-control').forEach(syncSegIndicator);
+      });
+    }
+  });
+});
+
 textInput.addEventListener('input', debouncedRender);
 
 // Segment mode
