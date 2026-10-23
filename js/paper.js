@@ -205,10 +205,14 @@ function buildCorners(fanCorners, fanRadius, rng) {
     const mag = rng.range(0, fanRadius);
     return { x: fc.x + Math.cos(angle) * mag, y: fc.y + Math.sin(angle) * mag };
   });
-  // normalize to 0,0
+  // normalize to 0,0 —— 同时返回原始 minX/minY 用于 em center 坐标转换
   const minX = Math.min(...corners.map(c => c.x));
   const minY = Math.min(...corners.map(c => c.y));
-  return corners.map(c => ({ x: c.x - minX, y: c.y - minY }));
+  return {
+    corners: corners.map(c => ({ x: c.x - minX, y: c.y - minY })),
+    minX,
+    minY
+  };
 }
 
 /**
@@ -472,7 +476,10 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
     { x: -safeMargin, y: sh + safeMargin },       // BL
   ];
 
-  let corners = buildCorners(fanCorners, fanR, rng);
+  const buildRes = buildCorners(fanCorners, fanR, rng);
+  let corners = buildRes.corners;
+  const buildMinX = buildRes.minX;
+  const buildMinY = buildRes.minY;
 
   // 5gon：在四边形某条边上插入第 5 个顶点
   if (shapeType === '5gon') {
@@ -487,9 +494,15 @@ export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, 
   let boundsW = maxX - minX;
   let boundsH = maxY - minY;
 
-  // 安全框（用于撕裂约束）：文本以质心为中心，safeBox = 文本框 + safeMargin
-  const cx = normCorners.reduce((s, c) => s + c.x, 0) / normCorners.length;
-  const cy = normCorners.reduce((s, c) => s + c.y, 0) / normCorners.length;
+  // 安全框（用于撕裂约束）：以 em center 为中心，不用顶点质心
+  // 根因：5gon 外侧插了 E 顶点，顶点质心会被拉偏（实测最大偏移达 38% 字形尺寸）
+  // em center 是原始 fanCorners 矩形中心（sw/2, sh/2），转换到最终 normCorners 坐标系：
+  // 1. 先转 buildCorners 返回的坐标系：sw/2 - buildMinX, sh/2 - buildMinY
+  // 2. 再转最终 normalize 后的坐标系：减去 corners_all 的 minX/minY
+  const emCxInBuild = sw / 2 - buildMinX;
+  const emCyInBuild = sh / 2 - buildMinY;
+  const cx = emCxInBuild - minX;
+  const cy = emCyInBuild - minY;
   const safeBox = {
     safeMinX: cx - sw / 2 - safeMargin,
     safeMaxX: cx + sw / 2 + safeMargin,
