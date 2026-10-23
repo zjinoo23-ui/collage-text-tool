@@ -1,6 +1,6 @@
 // main.js - Application entry point
 
-import { waitForFonts } from './fonts.js';
+import { waitForFonts, areFontsReady } from './fonts.js';
 import { segmentText } from './segmenter.js';
 import { renderToCanvas } from './renderer.js';
 import { downloadCanvas } from './export.js';
@@ -50,6 +50,22 @@ function debouncedRender() {
   renderTimeout = setTimeout(render, 150);
 }
 
+// 字体/渲染错误提示（明确报错，不静默回退）
+function setFontError(message) {
+  let el = document.getElementById('fontError');
+  if (!message) {
+    if (el) el.remove();
+    return;
+  }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'fontError';
+    el.className = 'font-error';
+    previewCanvas.parentElement.appendChild(el);
+  }
+  el.textContent = message;
+}
+
 function getParams() {
   return {
     text: textInput.value || ' ',
@@ -67,11 +83,21 @@ function getParams() {
 }
 
 function render() {
+  // 字体未就绪时不渲染，避免任何系统字体回退
+  if (!areFontsReady()) return;
+
   const params = getParams();
   const size = SIZES[params.sizeKey];
 
   // Render at full resolution to offscreen canvas
-  renderToCanvas(params, exportCanvas);
+  try {
+    renderToCanvas(params, exportCanvas);
+    setFontError('');
+  } catch (err) {
+    console.error(err);
+    setFontError(err.message || '字体加载失败');
+    return;
+  }
 
   // Draw scaled preview
   const previewWrapper = previewCanvas.parentElement;

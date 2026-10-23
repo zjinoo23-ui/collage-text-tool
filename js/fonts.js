@@ -1,76 +1,122 @@
-// fonts.js - Font management (simplified: just list font filenames)
-// Local TTF: put .ttf/.otf in assets/fonts/, add filename to LOCAL_FONTS below.
+// fonts.js - 字体系统
+// 规则：assets/fonts 是唯一字体来源；按字素语言分池随机；禁止任何系统字体回退。
 
-const LOCAL_FONTS = [
-  'Anton-Regular.ttf',
-  'PlayfairDisplay-Bold.ttf',
-  'PlayfairDisplay-Italic.ttf',
-  'PlayfairDisplay-Regular.ttf',
-  'SmileySans-Oblique-2.ttf',
-  'SourceHanSerifCN-Heavy-4.otf',
-  'SourceHanSerifCN-Regular-1.otf',
-  'SpecialElite-Regular.ttf',
-  'WuHanYingXiongTi-3.1-2.ttf',
-  'ZhengQingKeHuangYouTi-1.ttf',
-  'ZhuoTeZiYouTi-2.otf',
-  '站酷仓耳渔阳体-W02.ttf',
-  '站酷仓耳渔阳体-W04.ttf',
-  '站酷快乐体2016修订版.ttf',
-  '站酷文艺体.ttf',
-  "ZCOOL Addict Italic 01.ttf",
+// 字体清单（唯一来源）——文件 → 池归属
+// 英文池（纯英文字体，不含中文字形）6 个
+// 中文池（中文字体，兼容中英文）10 个
+const FONT_FILES = [
+  { file: 'Anton-Regular.ttf', pool: 'en' },
+  { file: 'PlayfairDisplay-Regular.ttf', pool: 'en' },
+  { file: 'PlayfairDisplay-Bold.ttf', pool: 'en' },
+  { file: 'PlayfairDisplay-Italic.ttf', pool: 'en' },
+  { file: 'SpecialElite-Regular.ttf', pool: 'en' },
+  { file: 'ZCOOL Addict Italic 01.ttf', pool: 'en' },
+  { file: 'SmileySans-Oblique-2.ttf', pool: 'cn' },
+  { file: 'SourceHanSerifCN-Regular-1.otf', pool: 'cn' },
+  { file: 'SourceHanSerifCN-Heavy-4.otf', pool: 'cn' },
+  { file: 'WuHanYingXiongTi-3.1-2.ttf', pool: 'cn' },
+  { file: 'ZhengQingKeHuangYouTi-1.ttf', pool: 'cn' },
+  { file: 'ZhuoTeZiYouTi-2.otf', pool: 'cn' },
+  { file: '站酷仓耳渔阳体-W02.ttf', pool: 'cn' },
+  { file: '站酷仓耳渔阳体-W04.ttf', pool: 'cn' },
+  { file: '站酷快乐体2016修订版.ttf', pool: 'cn' },
+  { file: '站酷文艺体.ttf', pool: 'cn' },
 ];
 
-const CJK_FALLBACK = '"Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif';
-
-// Build unified font list: ONLY local fonts (Google Fonts are base fallback, not in random pool)
-const FONTS = [];
-for (const file of LOCAL_FONTS) {
-  const name = file.replace(/\.(ttf|otf|woff2?)$/i, '');
-  const ext = file.match(/\.(ttf|otf|woff2?)$/i)?.[1]?.toLowerCase() || 'ttf';
-  FONTS.push({ family: name, weight: 400, src: `assets/fonts/${file}`, format: ext === 'otf' ? 'opentype' : 'truetype' });
+function familyOf(file) {
+  return file.replace(/\.(ttf|otf|woff2?)$/i, '');
 }
 
-// Inject @font-face for local fonts + block unwanted Google Fonts
-(function injectLocalFonts() {
-  const style = document.createElement('style');
-  let css = '';
-  // 1. Block Google Fonts that might be cached from earlier
-  const BLOCKED_FONTS = ['Noto Sans SC', 'Noto Sans'];
-  for (const name of BLOCKED_FONTS) {
-    css += `@font-face { font-family: '${name}'; font-display: none; src: none !important; }\n`;
-  }
-  // 2. Local fonts
-  for (const f of FONTS) {
-    if (f.src) {
-      css += `@font-face { font-family: '${f.family}'; font-weight: ${f.weight}; font-display: swap; src: url('${f.src}') format('${f.format}'); }\n`;
+const FONTS = FONT_FILES.map(({ file, pool }) => ({
+  family: familyOf(file),
+  pool,
+  src: `assets/fonts/${encodeURIComponent(file)}`,
+}));
+
+export const EN_FONTS = FONTS.filter(f => f.pool === 'en').map(f => f.family);
+export const CN_FONTS = FONTS.filter(f => f.pool === 'cn').map(f => f.family);
+
+// CJK 判定：汉字、CJK 标点（，。！？「」等）、假名、全角字符
+const CJK_RE = /[\u2e80-\u303f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]/;
+
+export function isCjkText(text) {
+  return CJK_RE.test(text);
+}
+
+/**
+ * 按字素内容取所属字体池，两池互不混用。
+ */
+export function getFontPool(text) {
+  return isCjkText(text) ? CN_FONTS : EN_FONTS;
+}
+
+// 加载状态：family → 是否成功加载
+const loadedFamilies = new Set();
+let fontsReady = false;
+let loadPromise = null;
+
+function isAvailable(family) {
+  if (!loadedFamilies.has(family)) return false;
+  if (typeof document !== 'undefined' && document.fonts) {
+    try {
+      return document.fonts.check(`400 64px "${family}"`);
+    } catch {
+      return true;
     }
   }
-  if (css) { style.textContent = css; document.head.appendChild(style); }
-})();
-
-let fontsReady = false;
-
-export function getFontCount() { return FONTS.length; }
-
-export function getFontCss(index, fontSize) {
-  const font = FONTS[index % FONTS.length];
-  const fallback = font.family === 'serif' ? 'serif' : CJK_FALLBACK;
-  return `${font.weight} ${fontSize}px "${font.family}", ${fallback}`;
+  return true;
 }
 
+/**
+ * 加载 assets/fonts 下全部字体。
+ * 用 FontFace API 显式加载，成功/失败可判定（不存在静默回退）。
+ */
 export function waitForFonts() {
-  if (fontsReady) return Promise.resolve();
-  if (typeof document !== 'undefined' && document.fonts) {
-    // 主动加载每个字体：canvas 绘制不会可靠触发 @font-face 加载，
-    // 仅等 document.fonts.ready 会让未请求过的字体一直用系统兜底字体。
-    const loads = FONTS.map(f =>
-      document.fonts.load(`${f.weight} 64px "${f.family}"`, '拼贴Aa123')
-        .catch(() => null)
-    );
-    return Promise.race([
-      Promise.all(loads).then(() => { fontsReady = true; }),
-      new Promise(resolve => setTimeout(resolve, 15000))
+  if (loadPromise) return loadPromise;
+  loadPromise = (async () => {
+    if (typeof document === 'undefined' || typeof FontFace === 'undefined') {
+      fontsReady = true;
+      return;
+    }
+    await Promise.race([
+      Promise.all(FONTS.map(async f => {
+        try {
+          const face = new FontFace(f.family, `url("${f.src}")`, { weight: '400' });
+          await face.load();
+          document.fonts.add(face);
+          loadedFamilies.add(f.family);
+        } catch (err) {
+          console.warn(`[fonts] 加载失败：${f.family}`, err);
+        }
+      })),
+      new Promise(resolve => setTimeout(resolve, 15000)),
     ]);
+    fontsReady = true;
+  })();
+  return loadPromise;
+}
+
+export function areFontsReady() {
+  return fontsReady;
+}
+
+/**
+ * 在字素所属池内等概率随机选一个已加载字体。
+ * 池内全部未加载时抛错，绝不用系统字体渲染。
+ */
+export function pickFontFamily(text, rng) {
+  const pool = getFontPool(text);
+  const available = pool.filter(isAvailable);
+  if (available.length === 0) {
+    const poolName = pool === CN_FONTS ? '中文池' : '英文池';
+    throw new Error(`字体加载失败：${poolName}无可用字体（${text}）`);
   }
-  return Promise.resolve();
+  return available[rng.int(0, available.length - 1)];
+}
+
+/**
+ * 只写池内字体的 family，不追加任何系统字体兜底。
+ */
+export function getFontCss(family, fontSize) {
+  return `400 ${fontSize}px "${family}"`;
 }

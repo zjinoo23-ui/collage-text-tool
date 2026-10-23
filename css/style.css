@@ -83,6 +83,21 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  position: relative;
+}
+
+/* 字体加载失败等渲染错误提示 */
+.font-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: #c0392b;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 #previewCanvas {

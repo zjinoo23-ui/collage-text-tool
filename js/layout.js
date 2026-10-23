@@ -1,7 +1,7 @@
 // layout.js - Layout engine: line wrapping, alignment, positioning
 
 import { createPositionRng } from './rng.js';
-import { getFontCss, getFontCount } from './fonts.js';
+import { getFontCss, pickFontFamily } from './fonts.js';
 import { analyzeGlyph, classifyShape, pickTearStyle, generatePaper, measureRealBounds } from './paper.js';
 import { TEXTURES } from './assets.js';
 import { createColorScheme } from './palettes.js';
@@ -98,10 +98,9 @@ function computeLayoutWithFontSize(p) {
     const layoutRng = createPositionRng(seed, idx * 2 + 1); // 布局 RNG
 
     // ── 样式部分：只用 styleRng ──
-    // 始终消耗 RNG 保证顺序稳定，toggles 只决定是否使用随机结果
-    const randomFontIdx = styleRng.int(0, getFontCount() - 1);
-    const fontIdx = toggles.font ? randomFontIdx : 0;
-    const glyph = analyzeGlyph(unit.text, getFontCss(fontIdx, 100));
+    // 字体：按字素语言分池（中文池 / 英文池），池内等概率随机，禁止系统字体回退
+    const fontFamily = pickFontFamily(unit.text, styleRng);
+    const glyph = analyzeGlyph(unit.text, getFontCss(fontFamily, 100));
     const shapeType = classifyShape(glyph, styleRng, unit.isPunct);
     const tearKey = pickTearStyle(styleRng, shapeType);
 
@@ -129,7 +128,7 @@ function computeLayoutWithFontSize(p) {
     // ── 布局部分：用 layoutRng 和 UI 参数 ──
     let fontSize = baseFontSize;
     if (toggles.size) fontSize = baseFontSize * layoutRng.range(0.85, 1.15);
-    const fontCss = getFontCss(fontIdx, fontSize);
+    const fontCss = getFontCss(fontFamily, fontSize);
     ctx.font = fontCss;
 
     // strokeW 是 strokeRatio * fontSize，fontSize 是布局参数，但 strokeRatio 是样式
@@ -145,7 +144,7 @@ function computeLayoutWithFontSize(p) {
     // 生成纸片（样式 RNG）
     const paper = generatePaper(glyph, shapeType, tearKey, textW, textH, styleRng, unit.isPunct, unit.text, fontCss, fontSize, strokeWEarly, glyphOx, glyphOy);
 
-    items.push({ unit, styleRng, layoutRng, fontIdx, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: idx, glyphOx, glyphOy, strokeW: strokeWEarly, spaceCount: 0, leadingSpaces: pendingLeading });
+    items.push({ unit, styleRng, layoutRng, fontFamily, fontSize, fontCss, textW, textH, paper, fillColor, textColor, strokeColor, textureIdx, layoutW: paper.bounds.w, index: idx, glyphOx, glyphOy, strokeW: strokeWEarly, spaceCount: 0, leadingSpaces: pendingLeading });
     pendingLeading = 0;
     atLineStart = false;
   });
