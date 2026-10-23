@@ -2,10 +2,22 @@
 // Local TTF: put .ttf/.otf in assets/fonts/, add filename to LOCAL_FONTS below.
 
 const LOCAL_FONTS = [
+  'Anton-Regular.ttf',
+  'PlayfairDisplay-Bold.ttf',
+  'PlayfairDisplay-Italic.ttf',
+  'PlayfairDisplay-Regular.ttf',
   'SmileySans-Oblique-2.ttf',
+  'SourceHanSerifCN-Heavy-4.otf',
+  'SourceHanSerifCN-Regular-1.otf',
+  'SpecialElite-Regular.ttf',
   'WuHanYingXiongTi-3.1-2.ttf',
   'ZhengQingKeHuangYouTi-1.ttf',
   'ZhuoTeZiYouTi-2.otf',
+  '站酷仓耳渔阳体-W02.ttf',
+  '站酷仓耳渔阳体-W04.ttf',
+  '站酷快乐体2016修订版.ttf',
+  '站酷文艺体.ttf',
+  "ZCOOL Addict Italic 01.ttf",
 ];
 
 const CJK_FALLBACK = '"Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif';
