@@ -4,10 +4,8 @@
 const LOCAL_FONTS = [
   'SmileySans-Oblique-2.ttf',
   'WuHanYingXiongTi-3.1-2.ttf',
-  'YeZiGongChangXiaoShiTou-2.ttf',
   'ZhengQingKeHuangYouTi-1.ttf',
   'ZhuoTeZiYouTi-2.otf',
-  'ZiKuJiangHuGuFengTi-2.ttf',
 ];
 
 const CJK_FALLBACK = '"Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif';
