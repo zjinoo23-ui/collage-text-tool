@@ -198,6 +198,7 @@ textarea {
   background: var(--card);
   border-radius: 12px;
   box-shadow: 0 0 4px var(--shadow);
+  transition: gap 0.2s ease;
 }
 
 .card-title {
@@ -237,7 +238,6 @@ textarea {
   position: absolute;
   background: var(--ochre);
   border-radius: 1px;
-  transition: transform 0.2s ease;
 }
 
 .card-sign::before {
@@ -247,23 +247,25 @@ textarea {
   height: 2px;
 }
 
+/* 竖笔画用高度过渡，不用缩放：2px 宽在缩放时会被亚像素渲染压细 */
 .card-sign::after {
   left: 5px;
-  top: 0;
+  top: 6px;
   width: 2px;
-  height: 12px;
-  transform: scaleY(0);
+  height: 0;
+  transition: height 0.2s ease, top 0.2s ease;
 }
 
 .paper-card.collapsed .card-sign::after {
-  transform: scaleY(1);
+  height: 12px;
+  top: 0;
 }
 
 /* 折叠容器：用行高过渡，展开/收起不跳变 */
 .card-body {
   display: grid;
   grid-template-rows: 1fr;
-  transition: grid-template-rows 0.24s ease;
+  transition: grid-template-rows 0.2s ease;
 }
 
 .card-body-inner {
@@ -272,10 +274,18 @@ textarea {
   gap: 12px;
   min-height: 0;
   overflow: hidden;
+  transition: opacity 0.2s ease, visibility 0s;
 }
 
 .paper-card.collapsed .card-body {
   grid-template-rows: 0fr;
+}
+
+/* 折叠后内容不可见也不可聚焦 */
+.paper-card.collapsed .card-body-inner {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0s 0.2s;
 }
 
 .paper-card.collapsed {
@@ -704,7 +714,6 @@ textarea {
 .action-row {
   display: flex;
   gap: 8px;
-  margin-top: 4px;
 }
 
 .btn {

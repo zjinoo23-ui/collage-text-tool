@@ -110,8 +110,8 @@ in Chinese</textarea>
         </div>
 
         <!-- 3. 随机 -->
-        <div class="paper-card">
-          <button type="button" class="card-title" aria-expanded="true">
+        <div class="paper-card collapsed">
+          <button type="button" class="card-title" aria-expanded="false">
             <span class="card-sign" aria-hidden="true"></span>
             随机
           </button>
@@ -137,8 +137,8 @@ in Chinese</textarea>
         </div>
 
         <!-- 4. 输出 -->
-        <div class="paper-card">
-          <button type="button" class="card-title" aria-expanded="true">
+        <div class="paper-card collapsed">
+          <button type="button" class="card-title" aria-expanded="false">
             <span class="card-sign" aria-hidden="true"></span>
             输出
           </button>
@@ -178,12 +178,13 @@ in Chinese</textarea>
                   </div>
                 </div>
               </div>
-
-              <div class="action-row">
-                <button id="downloadBtn" class="btn btn-primary">下载图片</button>
-              </div>
             </div>
           </div>
+        </div>
+
+        <!-- 下载按钮：独立于输出卡片，始终可见 -->
+        <div class="action-row">
+          <button id="downloadBtn" class="btn btn-primary">下载图片</button>
         </div>
       </section>
     </main>
