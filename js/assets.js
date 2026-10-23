@@ -9,7 +9,7 @@ export const TEXTURES = [
   { name: '001', path: 'assets/textures/001.png' },
   { name: '002', path: 'assets/textures/002.png' },
   { name: '003', path: 'assets/textures/003.png' },
-  { name: '004', path: 'assets/textures/004.png' },
+  { name: '004', path: 'assets/textures/004.jpg' },
   { name: '005', path: 'assets/textures/005.png' },
   { name: '006', path: 'assets/textures/006.png' },
   { name: '007', path: 'assets/textures/007.png' },
