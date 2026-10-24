@@ -8,6 +8,9 @@ import { SIZES } from './layout.js';
 import { preloadAssets } from './assets.js';
 import { preloadBackgrounds } from './backgrounds.js';
 
+// 页面版本号：后续升级只改这一处
+const VERSION = 'v0.5.0';
+
 // DOM elements
 const textInput = document.getElementById('textInput');
 const segmentModeBtns = document.querySelectorAll('#segmentMode .seg-btn');
@@ -37,6 +40,8 @@ const saveModalClose = document.getElementById('saveModalClose');
 const copyModal = document.getElementById('copyModal');
 const copyModalText = document.getElementById('copyModalText');
 const copyModalClose = document.getElementById('copyModalClose');
+const appVersion = document.getElementById('appVersion');
+if (appVersion) appVersion.textContent = VERSION;
 
 // State
 const state = {

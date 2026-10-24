@@ -97,6 +97,7 @@ textarea {
 
 /* ===== Layout：整页一张大纸 ===== */
 #app {
+  position: relative;
   max-width: 1240px;
   margin: 24px auto;
   padding: 24px 20px 28px;
@@ -105,6 +106,25 @@ textarea {
   box-shadow: 0 2px 8px var(--shadow);
   display: flex;
   flex-direction: column;
+}
+
+/* 版本号：纸卡右上角，绝对定位不占布局；低调灰字，不抢页眉视觉 */
+.app-version {
+  position: absolute;
+  top: 16px;
+  right: calc(16px + env(safe-area-inset-right));
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  color: rgba(38, 38, 31, 0.45);
+  user-select: none;
+}
+
+@media (hover: hover) {
+  .app-version:hover {
+    color: #6B5D4F;
+  }
 }
 
 /* ===== 页眉 ===== */
