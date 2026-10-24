@@ -30,6 +30,13 @@ const copyParamsBtn = document.getElementById('copyParamsBtn');
 const copyLabel = document.getElementById('copyLabel');
 const previewCanvas = document.getElementById('previewCanvas');
 const exportCanvas = document.getElementById('exportCanvas');
+const previewLoading = document.getElementById('previewLoading');
+const saveModal = document.getElementById('saveModal');
+const saveModalImg = document.getElementById('saveModalImg');
+const saveModalClose = document.getElementById('saveModalClose');
+const copyModal = document.getElementById('copyModal');
+const copyModalText = document.getElementById('copyModalText');
+const copyModalClose = document.getElementById('copyModalClose');
 
 // State
 const state = {
@@ -231,7 +238,7 @@ function render() {
     pw = ph * aspect;
   }
 
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   previewCanvas.width = Math.max(1, Math.round(pw * dpr));
   previewCanvas.height = Math.max(1, Math.round(ph * dpr));
   previewCanvas.style.width = pw + 'px';
@@ -345,10 +352,48 @@ regenBtn.addEventListener('click', () => {
   debouncedRender();
 });
 
+// === 弹窗（手机保存图 / 复制失败兜底） ===
+function isTouchUI() {
+  return window.matchMedia('(pointer: coarse)').matches ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+function openModal(modal) {
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+}
+
+function closeModals() {
+  [saveModal, copyModal].forEach(m => { m.hidden = true; });
+  document.body.classList.remove('modal-open');
+}
+
+[saveModal, copyModal].forEach(modal => {
+  modal.addEventListener('click', e => {
+    if (e.target === modal) closeModals();
+  });
+});
+saveModalClose.addEventListener('click', closeModals);
+copyModalClose.addEventListener('click', closeModals);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModals();
+});
+
 // Download
 downloadBtn.addEventListener('click', () => {
   const transparent = state.bgType === 'transparent';
-  downloadCanvas(exportCanvas, state.seed, transparent);
+  if (!isTouchUI()) {
+    downloadCanvas(exportCanvas, state.seed, transparent);
+    return;
+  }
+  // 手机端：大图预览 + 长按保存
+  try {
+    saveModalImg.src = exportCanvas.toDataURL(transparent ? 'image/png' : 'image/jpeg', 0.92);
+    openModal(saveModal);
+  } catch (err) {
+    console.error(err);
+    window.alert('导出图片失败，请重试');
+  }
 });
 
 // 复制参数
@@ -404,8 +449,14 @@ copyParamsBtn.addEventListener('click', async () => {
   const text = buildParamsText();
   const ok = await copyText(text);
   if (!ok) {
-    // 兜底：弹窗展示完整参数供手动复制
-    window.prompt('复制失败，请手动复制以下参数：', text);
+    // 兜底：弹窗展示完整参数，供长按复制
+    copyModalText.value = text;
+    openModal(copyModal);
+    requestAnimationFrame(() => {
+      copyModalText.focus();
+      copyModalText.select();
+      copyModalText.scrollTop = 0;
+    });
     return;
   }
   copyLabel.textContent = '✓ 已复制';
@@ -428,6 +479,8 @@ render();
 preloadAssets().then(() => render());
 preloadBackgrounds().then(() => render());
 waitForFonts().then(() => {
+  // 字体就绪后移除轻提示，并重绘画布
+  if (previewLoading) previewLoading.hidden = true;
   segmentContainers.forEach(syncSegIndicator);
   render();
 });

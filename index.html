@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#F4EEDF">
   <title>拼贴文字 · Collage Text</title>
   <link rel="stylesheet" href="css/style.css">
@@ -22,6 +22,7 @@
         <div class="preview-sheet">
           <div class="preview-wrapper">
             <canvas id="previewCanvas"></canvas>
+            <div class="preview-loading" id="previewLoading">字体加载中…</div>
           </div>
         </div>
       </section>
@@ -206,6 +207,24 @@ in Chinese</textarea>
     <img class="footer-logo" src="assets/xiaohongshu-logo.png" alt="小红书" />
     <span>贾斯伯还是吉努都可以</span>
   </footer>
+
+  <!-- 手机端：大图预览，长按保存 -->
+  <div class="modal" id="saveModal" hidden>
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-label="保存图片">
+      <button type="button" class="modal-close" id="saveModalClose" aria-label="关闭">×</button>
+      <p class="modal-hint">长按图片保存到相册</p>
+      <img id="saveModalImg" alt="生成的拼贴图" />
+    </div>
+  </div>
+
+  <!-- 复制失败兜底：完整参数供长按复制 -->
+  <div class="modal" id="copyModal" hidden>
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-label="复制参数">
+      <button type="button" class="modal-close" id="copyModalClose" aria-label="关闭">×</button>
+      <p class="modal-hint">自动复制失败，请长按下方文本全选复制</p>
+      <textarea id="copyModalText" class="modal-text" readonly></textarea>
+    </div>
+  </div>
 
   <!-- Full-res canvas for export (hidden) -->
   <canvas id="exportCanvas" style="display:none;"></canvas>
