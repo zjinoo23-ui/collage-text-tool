@@ -133,6 +133,31 @@ document.querySelectorAll('.dropdown').forEach(root => {
     root.classList.add('open');
     trigger.setAttribute('aria-expanded', 'true');
     menu.hidden = false;
+    positionMenu();
+  }
+
+  // 菜单挂在 body 上（fixed 定位）：既不会被折叠卡片的 overflow 裁掉，
+  // 也能在手机窄屏时夹在视口内，下方空间不够就向上展开。
+  function positionMenu() {
+    const rect = trigger.getBoundingClientRect();
+    const gap = 4;
+    const margin = 8;
+    menu.style.minWidth = Math.round(rect.width) + 'px';
+    const mw = menu.offsetWidth;
+    const mh = menu.offsetHeight;
+
+    let left = rect.left;
+    if (left + mw > window.innerWidth - margin) left = window.innerWidth - margin - mw;
+    if (left < margin) left = margin;
+
+    let top = rect.bottom + gap;
+    if (top + mh > window.innerHeight - margin) {
+      const above = rect.top - gap - mh;
+      top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - mh);
+    }
+
+    menu.style.left = Math.round(left) + 'px';
+    menu.style.top = Math.round(top) + 'px';
   }
 
   function close() {
@@ -150,6 +175,7 @@ document.querySelectorAll('.dropdown').forEach(root => {
 
   select.addEventListener('change', syncSelection);
 
+  document.body.appendChild(menu);
   dropdowns.push(api);
   syncSelection();
 });
@@ -161,8 +187,14 @@ function closeAllDropdowns(except) {
 }
 
 document.addEventListener('click', e => {
-  if (!e.target.closest('.dropdown')) closeAllDropdowns(null);
+  if (!e.target.closest('.dropdown') && !e.target.closest('.dropdown-menu')) {
+    closeAllDropdowns(null);
+  }
 });
+
+// fixed 定位的菜单不跟随滚动，滚动或旋转屏幕时直接收起
+window.addEventListener('scroll', () => closeAllDropdowns(null), { passive: true });
+window.addEventListener('resize', () => closeAllDropdowns(null));
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeAllDropdowns(null);
@@ -255,6 +287,8 @@ function render() {
 // 纸片卡折叠
 document.querySelectorAll('.card-title').forEach(btn => {
   btn.addEventListener('click', () => {
+    // 折叠时把挂在 body 上的下拉菜单一并收起
+    closeAllDropdowns(null);
     const card = btn.closest('.paper-card');
     const collapsed = card.classList.toggle('collapsed');
     btn.setAttribute('aria-expanded', String(!collapsed));

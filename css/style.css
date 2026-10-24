@@ -482,14 +482,14 @@ textarea {
   transform: rotate(180deg);
 }
 
-/* 菜单：独立弹出的纸卡（米纸底 + 卡片级投影） */
+/* 菜单：独立弹出的纸卡（米纸底 + 卡片级投影）
+   挂在 body 上用 fixed 定位，避免被折叠卡片的 overflow: hidden 裁掉 */
 .dropdown-menu {
-  position: absolute;
-  top: calc(100% + 4px);
+  position: fixed;
+  top: 0;
   left: 0;
   z-index: 40;
   width: max-content;
-  min-width: 100%;
   max-width: 240px;
   max-height: 232px;
   overflow-y: auto;
@@ -1028,27 +1028,28 @@ textarea {
   }
 }
 
-/* 小屏：整页贴合屏幕 */
+/* 小屏：保留整页纸卡的外观（外边距 + 圆角 + 投影），只把尺寸收紧 */
 @media (max-width: 899px) {
   #app {
-    margin: 0;
-    padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
-    min-height: 100vh;
-    min-height: 100dvh;
-    border-radius: 0;
-    box-shadow: none;
+    margin: calc(10px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) 16px calc(10px + env(safe-area-inset-left));
+    padding: 16px;
+    min-height: calc(100vh - 26px - env(safe-area-inset-top));
+    min-height: calc(100dvh - 26px - env(safe-area-inset-top));
+    border-radius: 16px;
+    box-shadow: 0 2px 8px var(--shadow);
   }
 
+  /* 页脚在纸卡外：与卡片下边线留出可见间隙，并让开底部安全区 */
   .site-footer {
-    margin-bottom: calc(24px + env(safe-area-inset-bottom));
+    margin: 0 auto calc(16px + env(safe-area-inset-bottom));
   }
 }
 
 /* ===== 手机（≤600px）：上下排布 + 触控尺寸 ===== */
 @media (max-width: 600px) {
   #app {
-    padding-left: calc(12px + env(safe-area-inset-left));
-    padding-right: calc(12px + env(safe-area-inset-right));
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .app-header {
@@ -1107,14 +1108,9 @@ textarea {
     min-height: 44px;
   }
 
-  /* 右侧背景下拉的菜单贴右对齐，避免超出屏幕 */
-  .control-row .control-group.half:last-child .dropdown-menu {
-    left: auto;
-    right: 0;
-  }
-
+  /* 下拉菜单宽度不超过屏幕（位置由 JS 夹到视口内） */
   .dropdown-menu {
-    max-width: calc(100vw - 40px);
+    max-width: calc(100vw - 24px);
   }
 
   .modal-sheet img {
