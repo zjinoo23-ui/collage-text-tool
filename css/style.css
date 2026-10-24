@@ -137,6 +137,25 @@ textarea {
   gap: 16px;
 }
 
+/* 页脚：整页最下方居中署名 */
+.site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 auto 24px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.footer-logo {
+  display: block;
+  height: 12px;
+  width: auto;
+}
+
 /* ===== 预览区：一张纸 ===== */
 .preview-section {
   display: flex;
