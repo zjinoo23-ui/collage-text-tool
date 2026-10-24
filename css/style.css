@@ -152,8 +152,8 @@ textarea {
 
 .footer-logo {
   display: block;
-  /* 图标内「小红书」字形约占整图高度的 29.5%，放大到字形高度 = 12px（与文字等高） */
-  height: 40.65px;
+  /* 图标内「小红书」字形约占整图高度的 29.5%，放大到字形高度 = 12px（与文字等高）后缩到 75% */
+  height: 30.5px;
   width: auto;
 }
 
