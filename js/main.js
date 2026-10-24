@@ -26,6 +26,8 @@ const bgSelect = document.getElementById('bgSelect');
 const seedInput = document.getElementById('seedInput');
 const regenBtn = document.getElementById('regenBtn');
 const downloadBtn = document.getElementById('downloadBtn');
+const copyParamsBtn = document.getElementById('copyParamsBtn');
+const copyLabel = document.getElementById('copyLabel');
 const previewCanvas = document.getElementById('previewCanvas');
 const exportCanvas = document.getElementById('exportCanvas');
 
@@ -347,6 +349,72 @@ regenBtn.addEventListener('click', () => {
 downloadBtn.addEventListener('click', () => {
   const transparent = state.bgType === 'transparent';
   downloadCanvas(exportCanvas, state.seed, transparent);
+});
+
+// 复制参数
+const SEGMENT_LABELS = { char: '逐字', mixed: '混合' };
+const ALIGN_LABELS = { left: '左', center: '居中', right: '右' };
+
+function buildParamsText() {
+  const sizeText = sizeSelect.options[sizeSelect.selectedIndex].text;
+  const bgText = bgSelect.options[bgSelect.selectedIndex].text;
+  return [
+    '【拼贴参数】',
+    `文字：${textInput.value}`,
+    `种子：${seedInput.value}`,
+    `成片单位：${SEGMENT_LABELS[state.segmentMode]}`,
+    `对齐：${ALIGN_LABELS[state.align]}`,
+    `字号缩放：${scaleSlider.value}%`,
+    `随机幅度：${randomSlider.value}%`,
+    `字间距：${gapSlider.value}%`,
+    `行间距：${lineGapSlider.value}%`,
+    `字号随机：${toggleSize.checked ? '开' : '关'}`,
+    `尺寸：${sizeText}`,
+    `背景：${bgText}`
+  ].join('\n');
+}
+
+async function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      // 权限被拒时走下面的兜底
+    }
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch (err) {
+    return false;
+  }
+}
+
+let copyResetTimer = null;
+copyParamsBtn.addEventListener('click', async () => {
+  const text = buildParamsText();
+  const ok = await copyText(text);
+  if (!ok) {
+    // 兜底：弹窗展示完整参数供手动复制
+    window.prompt('复制失败，请手动复制以下参数：', text);
+    return;
+  }
+  copyLabel.textContent = '✓ 已复制';
+  copyParamsBtn.classList.add('copied');
+  if (copyResetTimer) clearTimeout(copyResetTimer);
+  copyResetTimer = setTimeout(() => {
+    copyLabel.textContent = '复制参数';
+    copyParamsBtn.classList.remove('copied');
+  }, 2000);
 });
 
 // Window resize
