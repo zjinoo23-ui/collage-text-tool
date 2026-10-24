@@ -286,14 +286,23 @@ function render() {
 
 // 纸片卡折叠
 document.querySelectorAll('.card-title').forEach(btn => {
+  const card = btn.closest('.paper-card');
+
+  // 默认展开的卡片直接标记为已展开：此时才放开 overflow 裁剪，露出控件投影
+  if (!card.classList.contains('collapsed')) card.classList.add('card-open');
+
   btn.addEventListener('click', () => {
     // 折叠时把挂在 body 上的下拉菜单一并收起
     closeAllDropdowns(null);
-    const card = btn.closest('.paper-card');
     const collapsed = card.classList.toggle('collapsed');
     btn.setAttribute('aria-expanded', String(!collapsed));
-    // 展开后重新定位分段色块（折叠期间宽度为 0）
+
+    // 过渡期间保持裁剪，动画结束后再放开，避免内容溢出卡片
+    clearTimeout(card.revealTimer);
+    card.classList.remove('card-open');
     if (!collapsed) {
+      card.revealTimer = setTimeout(() => card.classList.add('card-open'), 210);
+      // 展开后重新定位分段色块（折叠期间宽度为 0）
       requestAnimationFrame(() => {
         card.querySelectorAll('.segmented-control').forEach(syncSegIndicator);
       });

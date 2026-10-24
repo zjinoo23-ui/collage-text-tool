@@ -45,6 +45,8 @@ label,
   --page: #F4EEDF;
   --panel: #F0E8D4;
   --card: #E4DAC2;
+  /* 深一档的纸边：卡片在页面上做出 1px 边缘，和图片展示区一致 */
+  --card-edge: #D8CCAF;
   --paper-light: #F7F1E4;
 
   /* 强调色 */
@@ -242,6 +244,8 @@ textarea {
   gap: 12px;
   padding: 16px;
   background: var(--card);
+  /* 与图片展示区同一套“1px 纸边 + 4px 投影”的立体规范 */
+  border: 1px solid var(--card-edge);
   border-radius: 12px;
   box-shadow: 0 0 4px var(--shadow);
   transition: gap 0.2s ease;
@@ -336,6 +340,12 @@ textarea {
 
 .paper-card.collapsed {
   gap: 0;
+}
+
+/* 展开完成后放开裁剪：内部控件（下拉触发框、按钮）的投影才不会被切掉。
+   收起/展开的 200ms 过渡期间仍保持 hidden，动画不会溢出。 */
+.paper-card.card-open .card-body-inner {
+  overflow: visible;
 }
 
 .control-group {
