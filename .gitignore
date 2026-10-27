@@ -31,3 +31,6 @@ collage-v0.5.0-single.html
 
 # 临时截图
 .screenshots/.tmp/
+
+# 交付用整包压缩
+/collage-text-tool-latest.zip
