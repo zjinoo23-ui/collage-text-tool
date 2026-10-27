@@ -21,7 +21,7 @@ export function renderToCanvas(params, canvas) {
   const ctx = canvas.getContext('2d');
 
   // Draw background (seed for deterministic noise)
-  drawBackground(ctx, size.w, size.h, bgType, seed);
+  drawBackground(ctx, size.w, size.h, bgType, seed, sizeKey);
 
   // Segment text
   const units = segmentText(text, segmentMode);

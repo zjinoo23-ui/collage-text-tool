@@ -380,7 +380,10 @@ toggleSize.addEventListener('change', () => {
 // Size & bg
 sizeSelect.addEventListener('change', () => {
   state.sizeKey = sizeSelect.value;
-  debouncedRender();
+  const key = state.sizeKey;
+  preloadBackgrounds(key).then(() => {
+    if (state.sizeKey === key) render();
+  });
 });
 bgSelect.addEventListener('change', () => {
   state.bgType = bgSelect.value;
@@ -526,7 +529,7 @@ window.addEventListener('resize', () => {
 // Init — render immediately, then re-render when fonts/assets ready
 render();
 preloadAssets().then(() => render());
-preloadBackgrounds().then(() => render());
+preloadBackgrounds(state.sizeKey).then(() => render());
 waitForFonts().then(() => {
   // 字体就绪后移除轻提示，并重绘画布
   if (previewLoading) previewLoading.hidden = true;

@@ -4,37 +4,82 @@
 
 const BG_TYPES = ['white', 'notebook', 'dotgrid', 'kraft', 'transparent'];
 
-// 背景图配置：type → 图片路径（transparent 不需要图片）
-const BG_IMAGE_CONFIG = {
-  white:     'assets/backgrounds/white.png',
-  notebook:  'assets/backgrounds/notebook.png',
-  dotgrid:   'assets/backgrounds/dotgrid.png',
-  kraft:     'assets/backgrounds/kraft.png',
+// 画幅 → 图片文件名中的比例后缀
+const SIZE_RATIO = {
+  square:    '1-1',
+  portrait:  '3-4',
+  wallpaper: '9-19.5',
 };
 
-// 已加载的背景图缓存：type → HTMLImageElement | null
+// 背景图配置：white 只有一张（cover 裁切适配三种画幅）；
+// notebook/dotgrid/kraft 每种画幅单独一张，命名如 notebook3-4.png
+const BG_IMAGE_CONFIG = {
+  white: 'assets/backgrounds/white.png',
+  notebook: {
+    '1-1':    'assets/backgrounds/notebook1-1.png',
+    '3-4':    'assets/backgrounds/notebook3-4.png',
+    '9-19.5': 'assets/backgrounds/notebook9-19.5.png',
+  },
+  dotgrid: {
+    '1-1':    'assets/backgrounds/dotgrid1-1.png',
+    '3-4':    'assets/backgrounds/dotgrid3-4.png',
+    '9-19.5': 'assets/backgrounds/dotgrid9-19.5.png',
+  },
+  kraft: {
+    '1-1':    'assets/backgrounds/kraft1-1.png',
+    '3-4':    'assets/backgrounds/kraft3-4.png',
+    '9-19.5': 'assets/backgrounds/kraft9-19.5.png',
+  },
+};
+
+// 已加载的背景图缓存：`type|ratio` → HTMLImageElement | null
 const bgImageCache = {};
+
+function cacheKey(type, ratio) {
+  return `${type}|${ratio}`;
+}
+
+// 缺少当前画幅的图时，按 3:4 → 1:1 → 9:19.5 顺序借用，仍用 cover 裁切
+function resolveBgPath(type, cfg, ratio) {
+  if (typeof cfg === 'string') return cfg;
+  if (cfg[ratio]) return cfg[ratio];
+  const fallbackRatio = ['3-4', '1-1', '9-19.5'].find(r => cfg[r]);
+  if (!fallbackRatio) return null;
+  console.warn(`[backgrounds] ${type} 缺少 ${ratio} 比例图片，暂用 ${fallbackRatio} 裁切替代`);
+  return cfg[fallbackRatio];
+}
 
 export function getBgTypes() {
   return BG_TYPES;
 }
 
 /**
- * 预加载所有背景图。加载失败的类型回退到代码绘制。
+ * 预加载当前画幅需要的背景图。加载失败的类型回退到代码绘制。
+ * @param {string} sizeKey - 'square'|'portrait'|'wallpaper'
  * 返回 Promise，resolve 后所有图片状态确定。
  */
-export function preloadBackgrounds() {
+export function preloadBackgrounds(sizeKey = 'portrait') {
+  const ratio = SIZE_RATIO[sizeKey] || SIZE_RATIO.portrait;
   const entries = Object.entries(BG_IMAGE_CONFIG);
-  return Promise.all(entries.map(([type, path]) => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => { bgImageCache[type] = img; resolve(); };
-      img.onerror = () => { bgImageCache[type] = null; resolve(); };
-      img.src = path;
-    });
-  })).then(() => {
-    const loaded = Object.values(bgImageCache).filter(Boolean).length;
-    console.log(`[backgrounds] loaded ${loaded}/${entries.length} background images`);
+  const jobs = entries.map(([type, cfg]) => {
+    const key = cacheKey(type, ratio);
+    const path = resolveBgPath(type, cfg, ratio);
+    return loadBgImage(key, path);
+  });
+  return Promise.all(jobs).then(() => {
+    const loaded = entries.filter(([type]) => bgImageCache[cacheKey(type, ratio)]).length;
+    console.log(`[backgrounds] ${sizeKey} → ${ratio}：loaded ${loaded}/${entries.length}`);
+  });
+}
+
+function loadBgImage(key, path) {
+  if (key in bgImageCache) return Promise.resolve();
+  if (!path) { bgImageCache[key] = null; return Promise.resolve(); }
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => { bgImageCache[key] = img; resolve(); };
+    img.onerror = () => { bgImageCache[key] = null; resolve(); };
+    img.src = path;
   });
 }
 
@@ -52,12 +97,14 @@ function hash2(x, y, seed) {
  * @param {number} height
  * @param {string} type - 'white'|'notebook'|'dotgrid'|'kraft'|'transparent'
  * @param {number} seed - Seed for deterministic noise
+ * @param {string} sizeKey - 'square'|'portrait'|'wallpaper'，决定用哪张比例图
  */
-export function drawBackground(ctx, width, height, type, seed = 0) {
+export function drawBackground(ctx, width, height, type, seed = 0, sizeKey = 'portrait') {
   ctx.save();
 
   // 优先用图片背景（cover 模式：保持比例缩放铺满 + 居中裁切）
-  const bgImg = bgImageCache[type];
+  const ratio = SIZE_RATIO[sizeKey] || SIZE_RATIO.portrait;
+  const bgImg = bgImageCache[cacheKey(type, ratio)];
   if (bgImg) {
     drawImageCover(ctx, bgImg, 0, 0, width, height);
     ctx.restore();
