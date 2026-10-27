@@ -52,7 +52,7 @@ const state = {
   scale: 2.0,
   randomAmount: 60,
   gapScale: 0.15,
-  lineGapScale: 0.55,
+  lineGapScale: 0.65,
   toggles: { color: true, font: true, size: true },
   sizeKey: 'portrait',
   bgType: 'notebook',

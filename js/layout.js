@@ -11,9 +11,12 @@ import { isPunct } from './segmenter.js';
 const NO_START_PUNCT = /^[，。、；：！？""''）》】』」…—]$/;
 
 // Max rotation in degrees
-const MAX_ROTATION = 12;
+const MAX_ROTATION = 20;
 // Max vertical float as fraction of char height
 const MAX_FLOAT = 0.4;
+// 重尾浮动：70% 的字取小幅（±12% 字高），30% 取大幅（±40% 字高）
+const FLOAT_SMALL = 0.12;
+const FLOAT_LARGE_CHANCE = 0.3;
 
 export const SIZES = {
   square: { w: 2048, h: 2048 },
@@ -26,7 +29,7 @@ export const SIZES = {
  */
 export function computeLayout(params) {
   const { units, sizeKey, bgType, align, valign = 'middle', seed, randomAmount, scale, toggles, ctx,
-    gapScale = 0.15, lineGapScale = 0.55 } = params;
+    gapScale = 0.15, lineGapScale = 0.65 } = params;
 
   const size = SIZES[sizeKey];
   const isTransparent = bgType === 'transparent';
@@ -58,7 +61,7 @@ export function computeLayout(params) {
 
 function computeLayoutWithFontSize(p) {
   const { units, isTransparent, bleed, contentX, contentY, contentW, contentH,
-    align, valign = 'middle', seed, randomAmount, gapScale, lineGapScale, baseFontSize, toggles, ctx } = p;
+    align, valign = 'middle', seed, randomAmount, gapScale, lineGapScale = 0.65, baseFontSize, toggles, ctx } = p;
 
   const randomFactor = randomAmount / 100;
   const gap = baseFontSize * gapScale;            // 字间距
@@ -206,12 +209,14 @@ function computeLayoutWithFontSize(p) {
         floatRange = MAX_FLOAT * 0.3;
       } else {
         yPos = currentY + lineH / 2;
-        floatRange = MAX_FLOAT;
+        // 重尾分布：多数小幅、少数大幅，避免整行机械地齐抖
+        floatRange = layoutRng.chance(FLOAT_LARGE_CHANCE) ? MAX_FLOAT : FLOAT_SMALL;
       }
       const floatY = layoutRng.range(-floatRange, floatRange) * item.textH * randomFactor;
 
-      // 随机旋转（用 layoutRng，randomAmount 控制幅度）
-      const rotation = layoutRng.range(-MAX_ROTATION, MAX_ROTATION) * randomFactor * (Math.PI / 180);
+      // 随机旋转（用 layoutRng，randomAmount 控制幅度；标点减半）
+      const rotationRange = isPunct ? MAX_ROTATION * 0.5 : MAX_ROTATION;
+      const rotation = layoutRng.range(-rotationRange, rotationRange) * randomFactor * (Math.PI / 180);
 
       // Punctuation: paper follows glyph's natural position (offset by ox/oy)
       const posOX = isPunct ? item.glyphOx : 0;
