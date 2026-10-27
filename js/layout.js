@@ -25,7 +25,7 @@ export const SIZES = {
  * Compute layout for the given input.
  */
 export function computeLayout(params) {
-  const { units, sizeKey, bgType, align, seed, randomAmount, scale, toggles, ctx,
+  const { units, sizeKey, bgType, align, valign = 'middle', seed, randomAmount, scale, toggles, ctx,
     gapScale = 0.15, lineGapScale = 0.55 } = params;
 
   const size = SIZES[sizeKey];
@@ -46,7 +46,7 @@ export function computeLayout(params) {
   for (let attempt = 0; attempt < 5; attempt++) {
     result = computeLayoutWithFontSize({
       units, sizeKey, isTransparent, bleed, contentX, contentY, contentW, contentH,
-      align, seed, randomAmount, gapScale, lineGapScale, baseFontSize, toggles, ctx
+      align, valign, seed, randomAmount, gapScale, lineGapScale, baseFontSize, toggles, ctx
     });
     if (result.totalH <= contentH) break;
     // Shrink font by 15% and retry
@@ -58,7 +58,7 @@ export function computeLayout(params) {
 
 function computeLayoutWithFontSize(p) {
   const { units, isTransparent, bleed, contentX, contentY, contentW, contentH,
-    align, seed, randomAmount, gapScale, lineGapScale, baseFontSize, toggles, ctx } = p;
+    align, valign = 'middle', seed, randomAmount, gapScale, lineGapScale, baseFontSize, toggles, ctx } = p;
 
   const randomFactor = randomAmount / 100;
   const gap = baseFontSize * gapScale;            // 字间距
@@ -161,9 +161,11 @@ function computeLayoutWithFontSize(p) {
   });
 
   const totalContentH = lineHeights.reduce((a, b) => a + b, 0);
+  // 垂直对齐：顶 / 居中 / 底（内容高于画布时统一从顶部开始）
   let startY = contentY;
   if (totalContentH < contentH) {
-    startY = contentY + (contentH - totalContentH) / 2;
+    if (valign === 'middle') startY = contentY + (contentH - totalContentH) / 2;
+    else if (valign === 'bottom') startY = contentY + (contentH - totalContentH);
   }
 
   const elements = [];

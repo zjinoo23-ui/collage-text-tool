@@ -15,6 +15,7 @@ const VERSION = 'v0.5.0';
 const textInput = document.getElementById('textInput');
 const segmentModeBtns = document.querySelectorAll('#segmentMode .seg-btn');
 const alignModeBtns = document.querySelectorAll('#alignMode .seg-btn');
+const valignModeBtns = document.querySelectorAll('#valignMode .seg-btn');
 const scaleSlider = document.getElementById('scaleSlider');
 const scaleValue = document.getElementById('scaleValue');
 const randomSlider = document.getElementById('randomSlider');
@@ -47,6 +48,7 @@ if (appVersion) appVersion.textContent = VERSION;
 const state = {
   segmentMode: 'mixed',
   align: 'center',
+  valign: 'middle',
   scale: 2.0,
   randomAmount: 60,
   gapScale: 0.15,
@@ -85,6 +87,7 @@ function getParams() {
     text: textInput.value || ' ',
     segmentMode: state.segmentMode,
     align: state.align,
+    valign: state.valign,
     sizeKey: state.sizeKey,
     bgType: state.bgType,
     seed: state.seed,
@@ -208,7 +211,8 @@ document.addEventListener('keydown', e => {
 // === 分段选择：色块滑动定位 ===
 const segmentContainers = [
   document.getElementById('segmentMode'),
-  document.getElementById('alignMode')
+  document.getElementById('alignMode'),
+  document.getElementById('valignMode')
 ];
 
 function syncSegIndicator(container) {
@@ -339,6 +343,17 @@ alignModeBtns.forEach(btn => {
   });
 });
 
+// Vertical align mode
+valignModeBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    valignModeBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.valign = btn.dataset.value;
+    syncSegIndicator(btn.parentElement);
+    debouncedRender();
+  });
+});
+
 // Scale slider
 scaleSlider.addEventListener('input', () => {
   state.scale = parseInt(scaleSlider.value) / 100;
@@ -451,6 +466,7 @@ downloadBtn.addEventListener('click', () => {
 // 复制参数
 const SEGMENT_LABELS = { char: '逐字', mixed: '混合' };
 const ALIGN_LABELS = { left: '左', center: '居中', right: '右' };
+const VALIGN_LABELS = { top: '顶', middle: '居中', bottom: '底' };
 
 function buildParamsText() {
   const sizeText = sizeSelect.options[sizeSelect.selectedIndex].text;
@@ -461,6 +477,7 @@ function buildParamsText() {
     `种子：${seedInput.value}`,
     `成片单位：${SEGMENT_LABELS[state.segmentMode]}`,
     `对齐：${ALIGN_LABELS[state.align]}`,
+    `垂直对齐：${VALIGN_LABELS[state.valign]}`,
     `字号缩放：${scaleSlider.value}%`,
     `随机幅度：${randomSlider.value}%`,
     `字间距：${gapSlider.value}%`,
