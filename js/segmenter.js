@@ -1,0 +1,122 @@
+// segmenter.js - Text segmentation for collage units
+
+const CHINESE_RE = /[\u4e00-\u9fff\u3400-\u4dbf]/;
+const ALNUM_RE = /[a-zA-Z0-9]/;
+const PUNCT_RE = /[，。、；：！？""''（）《》【】…—·,\.!?;:'"\(\)\[\]{}\\/<>@#$%^&*+=|~`-]/;
+
+export function isPunct(ch) {
+  return PUNCT_RE.test(ch);
+}
+export function isChinese(ch) {
+  return CHINESE_RE.test(ch);
+}
+function isAlnum(ch) {
+  return ALNUM_RE.test(ch);
+}
+function isSpace(ch) {
+  return /\s/.test(ch);
+}
+function isNewline(ch) {
+  return ch === '\n' || ch === '\r';
+}
+
+/**
+ * Segment text into collage units.
+ * @param {string} text - Input text
+ * @param {'char'|'mixed'|'word'} mode - Segmentation mode
+ * @returns {Array<{text: string, index: number}>} Array of units with original char index
+ */
+export function segmentText(text, mode) {
+  const units = [];
+
+  // Helper: push a unit with metadata
+  function push(text, index, extra = {}) {
+    units.push({ text, index, isPunct: PUNCT_RE.test(text), ...extra });
+  }
+
+  if (mode === 'char') {
+    // 逐字模式：每个字符独立成纸片，但记录空格与英文单词分组
+    // - 空格 -> 独立 space 单元（布局时表现为额外间距，不生成纸片）
+    // - 连续的字母/数字共享同一个 wordId（排版时整词不可跨行）
+    let wordId = 0;
+    let prevIsWordChar = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (isNewline(ch)) {
+        units.push({ text: '\n', index: i, isBreak: true });
+        prevIsWordChar = false;
+      } else if (isSpace(ch)) {
+        units.push({ text: ' ', index: i, isSpace: true });
+        prevIsWordChar = false;
+      } else {
+        let wid = null;
+        if (isAlnum(ch)) {
+          if (!prevIsWordChar) wordId++;
+          wid = wordId;
+          prevIsWordChar = true;
+        } else {
+          prevIsWordChar = false;
+        }
+        push(ch, i, wid !== null ? { wordId: wid } : {});
+      }
+    }
+  } else if (mode === 'mixed') {
+    let i = 0;
+    while (i < text.length) {
+      const ch = text[i];
+      if (isNewline(ch)) {
+        units.push({ text: '\n', index: i, isBreak: true });
+        i++;
+        continue;
+      }
+      if (isSpace(ch)) {
+        units.push({ text: ' ', index: i, isSpace: true });
+        i++;
+        continue;
+      }
+      if (isChinese(ch) || isPunct(ch)) {
+        push(ch, i);
+        i++;
+      } else if (isAlnum(ch)) {
+        let word = '';
+        const startIdx = i;
+        while (i < text.length && isAlnum(text[i])) { word += text[i]; i++; }
+        push(word, startIdx);
+      } else {
+        push(ch, i);
+        i++;
+      }
+    }
+  } else if (mode === 'word') {
+    // 按空格/换行切分，但保留连续回车（多个空行）
+    let i = 0;
+    let word = '';
+    let startIdx = null;
+    function flushWord() {
+      if (word) {
+        push(word, startIdx);
+        word = '';
+        startIdx = null;
+      }
+    }
+    while (i < text.length) {
+      const ch = text[i];
+      if (isNewline(ch)) {
+        flushWord();
+        units.push({ text: '\n', index: i, isBreak: true });
+        i++;
+      } else if (isSpace(ch)) {
+        flushWord();
+        units.push({ text: ' ', index: i, isSpace: true });
+        i++;
+      } else {
+        if (startIdx === null) startIdx = i;
+        word += ch;
+        i++;
+      }
+    }
+    flushWord();
+  }
+
+  return units;
+}

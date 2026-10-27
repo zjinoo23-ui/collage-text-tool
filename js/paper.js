@@ -1,0 +1,538 @@
+// paper.js - Three-layer paper generation: shape (glyph) + tear (seed) + texture (asset)
+
+// ── Tunable thresholds (初值，后续可调) ──
+const TH = {
+  glyphCutoutProb: 0.25,  // 字形裁剪的概率（剩余为矩形 0.75）
+  glyphCutoutPad: 0.0875, // 字形裁剪的描边厚度（占字号比例）
+  ngon5Prob: 0.35,        // 矩形纸片里 5 边形的概率（剩余为 4 边形）
+  // ── 矩形纸片：预防式扇形约束模型 ──
+  safeMarginRatio: 0.04, // 安全框边距（占字号比例）
+  fanRadiusRatio: 0.12,  // 顶点扇形半径（占字号比例）
+  maxRotationDeg: 12,    // 最大旋转角度（用于字形裁剪保守余量计算）
+};
+
+// ── Edge tear styles (参数均为相对字符尺寸比例) ──
+const TEAR_STYLES = {
+  straight: { type: 'straight' },                                    // 直剪：零扰动
+  fine:     { ampPct: 0.025, spacing: 8 },                            // 细腻：2-3% 振幅，6-10px 间距
+  rough:    { ampPct: 0.06, spacing: 15 },                            // 粗糙：10-15% 振幅，20-40px 间距
+  wavy:     { ampPct: 0.065, wavelengthRatio: 0.25 },                 // 波浪：5-8% 振幅，1/4 字符宽波长
+};
+export const TEAR_STYLE_KEYS = Object.keys(TEAR_STYLES);
+
+// Offscreen canvas for glyph analysis
+let _measureCanvas = null;
+function getMeasureCanvas() {
+  if (!_measureCanvas) {
+    _measureCanvas = document.createElement('canvas');
+    _measureCanvas.width = 300;
+    _measureCanvas.height = 300;
+  }
+  return _measureCanvas;
+}
+
+/**
+ * Analyze a glyph to extract shape features.
+ * @param {string} text - The unit text
+ * @param {string} fontCss - Canvas font string
+ * @param {CanvasRenderingContext2D} ctx - Main ctx (for font fallback)
+ * @returns {{r:number, t:number, theta:number, w:number, h:number}}
+ */
+export function analyzeGlyph(text, fontCss) {
+  const canvas = getMeasureCanvas();
+  const mctx = canvas.getContext('2d');
+  const fs = 100; // analyze at fixed large size for accuracy
+  // Size canvas to fit text: at 100px, each char ~60px avg
+  const aSize = Math.max(300, Math.ceil(text.length * 60 + 100));
+  canvas.width = aSize;
+  canvas.height = aSize;
+  mctx.clearRect(0, 0, aSize, aSize);
+  mctx.font = fontCss.replace(/[\d.]+px/, fs + 'px');
+  mctx.fillStyle = '#000';
+  mctx.textAlign = 'center';
+  mctx.textBaseline = 'middle';
+  mctx.fillText(text, aSize / 2, aSize / 2);
+
+  const imgData = mctx.getImageData(0, 0, aSize, aSize).data;
+  let minX = aSize, maxX = 0, minY = aSize, maxY = 0;
+  const rowCenters = []; // {y, cx} for tilt regression
+  const rowWidths = new Map(); // y -> width (for top/bottom ratio)
+
+  for (let y = 0; y < aSize; y++) {
+    let rowMinX = aSize, rowMaxX = 0, rowCount = 0;
+    for (let x = 0; x < aSize; x++) {
+      const alpha = imgData[(y * aSize + x) * 4 + 3];
+      if (alpha > 20) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+        if (x < rowMinX) rowMinX = x;
+        if (x > rowMaxX) rowMaxX = x;
+        rowCount++;
+      }
+    }
+    if (rowCount > 0) {
+      rowWidths.set(y, rowMaxX - rowMinX);
+      rowCenters.push({ y, cx: (rowMinX + rowMaxX) / 2 });
+    }
+  }
+
+  if (maxX <= minX || maxY <= minY) {
+    return { r: 1, t: 1, theta: 0, w: 100, h: 100, ox: 0, oy: 0 };
+  }
+
+  let w = maxX - minX;
+  let h = maxY - minY;
+  let r = w / h;
+  r = Math.max(0.35, Math.min(2.8, r));
+  // Glyph center offset from draw point (aSize/2, aSize/2) at 100px
+  const ox = (minX + maxX) / 2 - aSize / 2;
+  const oy = (minY + maxY) / 2 - aSize / 2;
+
+  // Top/bottom width ratio (t)
+  const topStart = minY;
+  const topEnd = minY + h / 3;
+  const botStart = minY + (2 * h) / 3;
+  const botEnd = maxY;
+  let topSum = 0, topN = 0, botSum = 0, botN = 0;
+  for (const [y, wd] of rowWidths) {
+    if (y >= topStart && y <= topEnd) { topSum += wd; topN++; }
+    if (y >= botStart && y <= botEnd) { botSum += wd; botN++; }
+  }
+  const topAvg = topN > 0 ? topSum / topN : w;
+  const botAvg = botN > 0 ? botSum / botN : w;
+  const t = botAvg > 0 ? topAvg / botAvg : 1;
+
+  // Tilt angle (θ) via linear regression of row-center vs row-y
+  let theta = 0;
+  if (rowCenters.length >= 5) {
+    const n = rowCenters.length;
+    let sumY = 0, sumCx = 0, sumYCx = 0, sumY2 = 0;
+    for (const rc of rowCenters) {
+      sumY += rc.y; sumCx += rc.cx; sumYCx += rc.y * rc.cx; sumY2 += rc.y * rc.y;
+    }
+    const denom = n * sumY2 - sumY * sumY;
+    if (Math.abs(denom) > 0.001) {
+      const slope = (n * sumYCx - sumY * sumCx) / denom;
+      theta = Math.atan(slope) * 180 / Math.PI;
+    }
+  }
+
+  return { r, t, theta, w, h, ox, oy };
+}
+
+let _measCanvas;
+function getMeasCanvas() {
+  if (!_measCanvas) _measCanvas = document.createElement('canvas');
+  return _measCanvas;
+}
+
+/**
+ * Measure real pixel bounds of text rendered at actual fontSize.
+ * Returns { w, h, ox, oy } where ox/oy is glyph center offset from draw center.
+ */
+export function measureRealBounds(text, fontCss, fontSize, strokeW = 0) {
+  const canvas = getMeasCanvas();
+  const size = Math.ceil(Math.max(fontSize * 3, fontSize * 0.6 * (text.length + 2)));
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, size, size);
+  ctx.font = fontCss;
+  ctx.fillStyle = '#000';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.miterLimit = 2;
+  if (strokeW > 0) {
+    ctx.lineWidth = strokeW;
+    ctx.strokeStyle = '#000';
+    ctx.strokeText(text, size / 2, size / 2);
+  }
+  ctx.fillText(text, size / 2, size / 2);
+  const data = ctx.getImageData(0, 0, size, size).data;
+  let minX = size, minY = size, maxX = 0, maxY = 0;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (data[(y * size + x) * 4 + 3] > 10) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX <= minX) {
+    return { w: fontSize * 0.5, h: fontSize * 0.5, ox: 0, oy: 0 };
+  }
+  const w = maxX - minX + 1;
+  const h = maxY - minY + 1;
+  const ox = (minX + maxX) / 2 - size / 2;
+  const oy = (minY + maxY) / 2 - size / 2;
+  return { w, h, ox, oy };
+}
+
+/**
+ * Classify shape based on glyph features and probabilities.
+ * 标点→4gon；否则字形裁剪、5边形、4边形三者选一。
+ * @returns {string} 'glyphCutout' | '5gon' | '4gon'
+ */
+export function classifyShape(glyph, rng, isPunct = false) {
+  if (isPunct) return '4gon';
+  const roll = rng.range(0, 1);
+  if (roll < TH.glyphCutoutProb) return 'glyphCutout';
+  const rectRoll = (roll - TH.glyphCutoutProb) / (1 - TH.glyphCutoutProb);
+  if (rectRoll < TH.ngon5Prob) return '5gon';
+  return '4gon';
+}
+
+/**
+ * Generate corners using the preventive fan constraint model.
+ * 顶点在安全框四角的 1/4 圆扇形内随机取点，纸片天然包住安全框。
+ * 扇形方向朝四角外侧（TL↖ TR↗ BR↘ BL↙）。
+ */
+function buildCorners(fanCorners, fanRadius, rng) {
+  const baseFanAngles = [
+    [Math.PI, Math.PI * 1.5],       // TL: up-left
+    [Math.PI * 1.5, Math.PI * 2],  // TR: up-right
+    [0, Math.PI * 0.5],             // BR: down-right
+    [Math.PI * 0.5, Math.PI],       // BL: down-left
+  ];
+  const corners = fanCorners.slice(0, 4).map((fc, i) => {
+    const angle = rng.range(...baseFanAngles[i]);
+    const mag = rng.range(0, fanRadius);
+    return { x: fc.x + Math.cos(angle) * mag, y: fc.y + Math.sin(angle) * mag };
+  });
+  // normalize to 0,0 —— 同时返回原始 minX/minY 用于 em center 坐标转换
+  const minX = Math.min(...corners.map(c => c.x));
+  const minY = Math.min(...corners.map(c => c.y));
+  return {
+    corners: corners.map(c => ({ x: c.x - minX, y: c.y - minY })),
+    minX,
+    minY
+  };
+}
+
+/**
+ * 在四边形的一条边上插入第 5 个顶点，凸向外侧。
+ *
+ * 核心：用边段向量推导几何，不依赖全局方向假设。
+ *  对每条边 (from → to)：
+ *    edge = to - from，edgeLen = |edge|
+ *    edgeDir = edge / edgeLen          （沿边方向，从 from 到 to）
+ *    outerN = rotate+90°(edgeDir)      （边外法线，沿用 applyTear 中的 nx=-dy, ny=dx）
+ *
+ * 算法：
+ *  1. 随机选一条边（0..3）
+ *  2. 在边上取 P：t ∈ [0.3, 0.7] 避开端点，P = from + t * edge
+ *  3. 以 P 为圆心、R/2 为半径，凸向 outerN 方向画半圆
+ *  4. 在半圆内均匀采样：角度 φ ∈ [-π/2, +π/2] 沿 edgeDir 左右
+ *     半径 ρ = sqrt(u) * (R/2)，u ∈ [0,1] 面积均匀
+ *  5. E = P + outerN * cos(φ) * ρ + edgeDir * sin(φ) * ρ
+ *  6. 插入顺序：corners[0..i] + E + corners[i+1..3]
+ *
+ * 这样生成的五边形不自交（凸边外侧插入新顶点保持整体凸性）。
+ */
+function addFifthVertex(corners, fanRadius, rng) {
+  const n = corners.length;  // 预期 4，但按通用 N 实现
+  const edgeIdx = Math.floor(rng.range(0, n));
+  const from = corners[edgeIdx];
+  const to = corners[(edgeIdx + 1) % n];
+
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const edgeLen = Math.sqrt(dx * dx + dy * dy);
+  const edx = dx / edgeLen;   // edgeDir.x
+  const edy = dy / edgeLen;   // edgeDir.y
+  // 外法线：顺时针多边形（TL→TR→BR→BL）rotate -90°
+  // 注意：applyTear 里的 nx=-dy/len, ny=dx/len 是**内法线**
+  // 我们的半圆要凸向纸片外，所以必须用外法线：(dy/len, -dx/len)
+  const nx = dy / edgeLen;
+  const ny = -dx / edgeLen;
+
+  // 在边上取 P，避开端点
+  const t = rng.range(0.3, 0.7);
+  const Px = from.x + dx * t;
+  const Py = from.y + dy * t;
+
+  // 半圆参数
+  const Rhalf = fanRadius / 2;
+  const phi = rng.range(-Math.PI / 2, Math.PI / 2);
+  const u = rng.range(0, 1);
+  const rho = Math.sqrt(u) * Rhalf;
+
+  // 向量分解：沿外法线 (cos φ) + 沿边方向 (sin φ)
+  const Ex = Px + nx * Math.cos(phi) * rho + edx * Math.sin(phi) * rho;
+  const Ey = Py + ny * Math.cos(phi) * rho + edy * Math.sin(phi) * rho;
+
+  // 插入到 corners[edgeIdx] 和 corners[edgeIdx+1] 之间
+  const result = corners.slice(0, edgeIdx + 1);
+  result.push({ x: Ex, y: Ey });
+  result.push(...corners.slice(edgeIdx + 1));
+  return result;
+}
+
+/**
+ * Apply edge tear style to corners, producing a Path2D.
+ */
+function applyTear(corners, tearKey, rng, charSize, safeBox = null) {
+  const style = TEAR_STYLES[tearKey] || TEAR_STYLES.straight;
+  const path = new Path2D();
+
+  // 安全框约束：沿法线方向限制向内的撕裂偏移
+  // 不区分斜边/直边，统一沿边的法线方向计算到 safeBox 入口边界的距离
+  // 关键：计算的是"进入"safeBox 的距离（近边界），不是"穿出"的距离（远边界）
+  const inwardSpace = (bx, by, nx, ny) => {
+    if (!safeBox) return Infinity;
+    let t = Infinity;
+    // nx > 0 (向右内)：先碰到 safeMinX（左边界 = 入口）
+    if (nx > 1e-6) t = Math.min(t, (safeBox.safeMinX - bx) / nx);
+    // nx < 0 (向左内)：先碰到 safeMaxX（右边界 = 入口）
+    if (nx < -1e-6) t = Math.min(t, (safeBox.safeMaxX - bx) / nx);
+    // ny > 0 (向下内)：先碰到 safeMinY（上边界 = 入口）
+    if (ny > 1e-6) t = Math.min(t, (safeBox.safeMinY - by) / ny);
+    // ny < 0 (向上内)：先碰到 safeMaxY（下边界 = 入口）
+    if (ny < -1e-6) t = Math.min(t, (safeBox.safeMaxY - by) / ny);
+    return t;
+  };
+  const tearPoint = (bx, by, nx, ny, offset) => {
+    if (!safeBox) return { x: bx + nx * offset, y: by + ny * offset };
+    const space = inwardSpace(bx, by, nx, ny);
+    const safety = 5;
+    if (offset <= 0) return { x: bx + nx * offset, y: by + ny * offset };
+    const maxInward = Math.max(0, space - safety);
+    const falloff = Math.max(2, charSize * 0.03);
+    let finalOffset;
+    if (maxInward <= 0) finalOffset = 0;
+    else if (offset <= maxInward - falloff) finalOffset = offset;
+    else {
+      const k = Math.min(1, (offset - (maxInward - falloff)) / falloff);
+      finalOffset = maxInward - falloff * k * k;
+    }
+    return { x: bx + nx * finalOffset, y: by + ny * finalOffset };
+  };
+
+  if (style.type === 'straight') {
+    path.moveTo(corners[0].x, corners[0].y);
+    for (let i = 1; i < corners.length; i++) path.lineTo(corners[i].x, corners[i].y);
+    path.closePath();
+    return path;
+  }
+
+  const allPoints = [];
+
+  for (let i = 0; i < corners.length; i++) {
+    const from = corners[i];
+    const to = corners[(i + 1) % corners.length];
+    allPoints.push({ ...from });
+
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const edgeLen = Math.sqrt(dx * dx + dy * dy);
+    const nx = -dy / edgeLen;
+    const ny = dx / edgeLen;
+
+    if (style.type === 'wavy') {
+      // Sine wave along the edge
+      const wavelength = charSize * style.wavelengthRatio;
+      const amp = charSize * style.ampPct;
+      const steps = Math.max(8, Math.floor(edgeLen / (wavelength / 6)));
+      for (let s = 1; s <= steps; s++) {
+        const t = s / (steps + 1);
+        const bx = from.x + dx * t;
+        const by = from.y + dy * t;
+        const phase = (edgeLen * t / wavelength) * Math.PI * 2;
+        const offset = Math.sin(phase) * amp;
+        allPoints.push(tearPoint(bx, by, nx, ny, offset));
+      }
+    } else {
+      // Jagged tear (fine or rough)
+      const spacing = style.spacing;
+      const amp = charSize * style.ampPct;
+      const steps = Math.max(3, Math.floor(edgeLen / spacing));
+      for (let s = 1; s <= steps; s++) {
+        const t = s / (steps + 1);
+        const bx = from.x + dx * t;
+        const by = from.y + dy * t;
+        const offset = rng.range(-1, 1) * amp;
+        allPoints.push(tearPoint(bx, by, nx, ny, offset));
+      }
+    }
+  }
+
+  path.moveTo(allPoints[0].x, allPoints[0].y);
+  for (let i = 1; i < allPoints.length; i++) {
+    const prev = allPoints[i - 1];
+    const curr = allPoints[i];
+    const cpx = (prev.x + curr.x) / 2;
+    const cpy = (prev.y + curr.y) / 2;
+    path.quadraticCurveTo(cpx, cpy, curr.x, curr.y);
+  }
+  path.closePath();
+  return path;
+}
+
+/**
+ * Generate a paper: shape from glyph, tear from seed (tearKey), texture handled by renderer.
+ * 旋转不在此阶段处理——由渲染器在 Pass 3 做变换。
+ * @param {object} glyph - From analyzeGlyph()
+ * @param {string} shapeType - 'rect' | 'glyphCutout'
+ * @param {string} tearKey - One of TEAR_STYLE_KEYS (seed-driven)
+ * @param {number} textWidth - measured text width (including stroke)
+ * @param {number} textHeight - measured text height (including stroke)
+ * @param {object} rng - position rng for corner jitter
+ * @param {boolean} isPunct - smaller padding for punctuation
+ * @returns {object} { path, bounds:{w,h}, center, type, tear, textOffset }
+ */
+export function generatePaper(glyph, shapeType, tearKey, textWidth, textHeight, rng, isPunct = false, text = '', fontCss = '', fontSize = 0, strokeW = 0, ox = 0, oy = 0) {
+  // ── glyphCutout: paper hugs the glyph outline with thick padding ──
+  // 旋转不在此处理——渲染阶段 mask 和文字一起旋转，相对位置不变
+  // bounds 用 mask 实际非透明像素边界，不用整个画布尺寸
+  // 关键：画布按字形紧 bbox 定尺寸，但 textBaseline='middle' 定位的是字体 em 中心，
+  // 与字形 bbox 中心有 (ox, oy) 偏移。必须用 (cw/2 - ox, ch/2 - oy) 让字形 bbox 居中，
+  // 否则粗描边会顶到画布边缘被裁平。
+  if (shapeType === 'glyphCutout' && text && fontCss) {
+    const pad = fontSize * TH.glyphCutoutPad;
+    const maskPad = Math.max(pad, (strokeW || 0) / 2) + 3;
+    const extraPad = maskPad + 8;
+    const cw = Math.ceil(textWidth + extraPad * 2);
+    const ch = Math.ceil(textHeight + extraPad * 2);
+    const tx = cw / 2 - ox;
+    const ty = ch / 2 - oy;
+    const mask = document.createElement('canvas');
+    mask.width = cw;
+    mask.height = ch;
+    const mctx = mask.getContext('2d');
+    mctx.font = fontCss;
+    mctx.textAlign = 'center';
+    mctx.textBaseline = 'middle';
+    mctx.lineJoin = 'round';
+    mctx.lineCap = 'round';
+    mctx.miterLimit = 2;
+    mctx.strokeStyle = '#000';
+    mctx.fillStyle = '#000';
+    if (strokeW > 0) {
+      mctx.lineWidth = strokeW;
+      mctx.strokeText(text, tx, ty);
+    }
+    mctx.lineWidth = maskPad * 2;
+    mctx.strokeText(text, tx, ty);
+    mctx.fillText(text, tx, ty);
+
+    // 扫描 mask 实际边界，得到 bounds
+    const imgData = mctx.getImageData(0, 0, cw, ch).data;
+    let minX = cw, maxX = 0, minY = ch, maxY = 0;
+    for (let y = 0; y < ch; y++) {
+      for (let x = 0; x < cw; x++) {
+        if (imgData[(y * cw + x) * 4 + 3] > 10) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    // 四周各加 3px 安全余量
+    minX = Math.max(0, minX - 3);
+    minY = Math.max(0, minY - 3);
+    maxX = Math.min(cw - 1, maxX + 3);
+    maxY = Math.min(ch - 1, maxY + 3);
+    const boundsW = maxX - minX + 1;
+    const boundsH = maxY - minY + 1;
+
+    // 文字在裁剪后 bounds 中的绘制位置 = 文字在 mask 中的坐标 - maskOffset
+    const centerX = tx - minX;
+    const centerY = ty - minY;
+
+    return {
+      path: null,
+      mask,
+      maskOffset: { x: minX, y: minY },  // mask 内有效区域起点
+      bounds: { w: boundsW, h: boundsH },
+      center: { x: centerX, y: centerY },
+      type: 'glyphCutout',
+      tear: 'straight',
+      textOffset: { x: (cw - textWidth) / 2, y: (ch - textHeight) / 2 }
+    };
+  }
+
+  // ── 多边形（4gon / 5gon）：预防式扇形约束模型 ──
+  // ① 文本框 → ② 安全框 → ③ 扇形(安全框四角) → ④ 顶点在扇形内随机 → ⑤ (5gon 额外：边上插顶点)
+  const strokePad = strokeW > 0 ? 2 : 0;
+  const safeMargin = fontSize * TH.safeMarginRatio + strokePad;
+  const fanR = fontSize * TH.fanRadiusRatio;
+
+  // 描边后的文本框尺寸（用于安全框计算）
+  const sw = textWidth + strokePad * 2;
+  const sh = textHeight + strokePad * 2;
+
+  // 安全框四角（以描边后文本框左上角为原点）
+  const fanCorners = [
+    { x: -safeMargin, y: -safeMargin },           // TL
+    { x: sw + safeMargin, y: -safeMargin },       // TR
+    { x: sw + safeMargin, y: sh + safeMargin },   // BR
+    { x: -safeMargin, y: sh + safeMargin },       // BL
+  ];
+
+  const buildRes = buildCorners(fanCorners, fanR, rng);
+  let corners = buildRes.corners;
+  const buildMinX = buildRes.minX;
+  const buildMinY = buildRes.minY;
+
+  // 5gon：在四边形某条边上插入第 5 个顶点
+  if (shapeType === '5gon') {
+    corners = addFifthVertex(corners, fanR, rng);
+  }
+
+  let minX = Math.min(...corners.map(c => c.x));
+  let minY = Math.min(...corners.map(c => c.y));
+  let maxX = Math.max(...corners.map(c => c.x));
+  let maxY = Math.max(...corners.map(c => c.y));
+  let normCorners = corners.map(c => ({ x: c.x - minX, y: c.y - minY }));
+  let boundsW = maxX - minX;
+  let boundsH = maxY - minY;
+
+  // 安全框（用于撕裂约束）：以 em center 为中心，不用顶点质心
+  // 根因：5gon 外侧插了 E 顶点，顶点质心会被拉偏（实测最大偏移达 38% 字形尺寸）
+  // em center 是原始 fanCorners 矩形中心（sw/2, sh/2），转换到最终 normCorners 坐标系：
+  // 1. 先转 buildCorners 返回的坐标系：sw/2 - buildMinX, sh/2 - buildMinY
+  // 2. 再转最终 normalize 后的坐标系：减去 corners_all 的 minX/minY
+  const emCxInBuild = sw / 2 - buildMinX;
+  const emCyInBuild = sh / 2 - buildMinY;
+  const cx = emCxInBuild - minX;
+  const cy = emCyInBuild - minY;
+  const safeBox = {
+    safeMinX: cx - sw / 2 - safeMargin,
+    safeMaxX: cx + sw / 2 + safeMargin,
+    safeMinY: cy - sh / 2 - safeMargin,
+    safeMaxY: cy + sh / 2 + safeMargin
+  };
+
+  const charSize = Math.min(boundsW, boundsH);
+  const path = applyTear(normCorners, tearKey, rng, charSize, safeBox);
+
+  return {
+    path,
+    bounds: { w: boundsW, h: boundsH },
+    center: { x: cx, y: cy },
+    type: shapeType,
+    tear: tearKey,
+    textOffset: { x: cx - textWidth / 2, y: cy - textHeight / 2 }
+  };
+}
+
+/**
+ * Pick a tear style key using seed rng.
+ * Can be weakly correlated with shape (square → prefers straight/fine).
+ */
+export function pickTearStyle(rng, shapeType) {
+  if (shapeType === 'glyphCutout') return 'straight';
+  const roll = rng.range(0, 1);
+  // 4gon/5gon：balanced distribution
+  if (roll < 0.15) return 'straight';
+  if (roll < 0.45) return 'fine';
+  if (roll < 0.80) return 'rough';
+  return 'wavy';
+}

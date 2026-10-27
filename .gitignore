@@ -1,0 +1,33 @@
+# System files
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+.uploads/
+
+# 本地生成的示例图，不进仓库
+samples/
+
+# 小红书小工具发布产物（本地打包，不进仓库）
+/v*-小红书发布/
+/v*-小红书发布.zip
+/collage-*-xhs.zip
+
+# 打包校验用的官方 skill（本地工具，不进仓库）
+.skill/
+
+# 本地单文件版产物（按需手动生成，不进仓库）
+v0.5.0-单文件版.html
+collage-v0.5.0-single.html
+.trae-html-share-packages/
+
+# 临时截图
+.screenshots/.tmp/

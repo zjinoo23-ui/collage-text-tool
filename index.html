@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#F4EEDF">
+  <title>拼贴文字 · Collage Text</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <span class="app-version" id="appVersion"></span>
+
+    <!-- Header -->
+    <header class="app-header">
+      <h1 class="app-title">拼贴文字</h1>
+      <span class="app-subtitle">COLLAGE TEXT</span>
+    </header>
+
+    <!-- Main content -->
+    <main class="app-main">
+      <!-- Preview area：整块一张纸 -->
+      <section class="preview-section">
+        <div class="preview-sheet">
+          <div class="preview-wrapper">
+            <canvas id="previewCanvas"></canvas>
+            <div class="preview-loading" id="previewLoading">字体加载中…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Controls -->
+      <section class="controls-section">
+        <!-- 1. 文字输入 -->
+        <div class="paper-card">
+          <button type="button" class="card-title" aria-expanded="true">
+            <span class="card-sign" aria-hidden="true"></span>
+            文字输入
+          </button>
+          <div class="card-body">
+            <div class="card-body-inner">
+              <div class="control-group">
+                <label class="control-label" for="seedInput">种子号</label>
+                <div class="seed-row">
+                  <input type="number" id="seedInput" class="seed-input" value="9029">
+                  <button id="regenBtn" class="btn btn-secondary">换种子</button>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <label class="control-label" for="textInput">输入文字</label>
+                <textarea id="textInput" class="text-input" rows="4" placeholder="输入文字，生成拼贴…">让我们
+拼中文
+Let's Collage 
+in Chinese</textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. 排版 -->
+        <div class="paper-card">
+          <button type="button" class="card-title" aria-expanded="true">
+            <span class="card-sign" aria-hidden="true"></span>
+            排版
+          </button>
+          <div class="card-body">
+            <div class="card-body-inner">
+              <div class="control-group">
+                <span class="control-label">成片单位</span>
+                <div class="segmented-control" id="segmentMode">
+                  <span class="seg-indicator" aria-hidden="true"></span>
+                  <button class="seg-btn" data-value="char">逐字</button>
+                  <button class="seg-btn active" data-value="mixed">混合</button>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <span class="control-label">对齐方式</span>
+                <div class="segmented-control" id="alignMode">
+                  <span class="seg-indicator" aria-hidden="true"></span>
+                  <button class="seg-btn" data-value="left">左对齐</button>
+                  <button class="seg-btn active" data-value="center">居中</button>
+                  <button class="seg-btn" data-value="right">右对齐</button>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <div class="label-row">
+                  <label class="control-label" for="scaleSlider">字号缩放</label>
+                  <span id="scaleValue" class="value-label">200%</span>
+                </div>
+                <input type="range" id="scaleSlider" class="slider" min="50" max="500" value="200" step="5">
+              </div>
+
+              <div class="control-group">
+                <div class="label-row">
+                  <label class="control-label" for="gapSlider">字间距</label>
+                  <span id="gapValue" class="value-label">15%</span>
+                </div>
+                <input type="range" id="gapSlider" class="slider" min="0" max="60" value="15" step="1">
+              </div>
+
+              <div class="control-group">
+                <div class="label-row">
+                  <label class="control-label" for="lineGapSlider">行间距</label>
+                  <span id="lineGapValue" class="value-label">55%</span>
+                </div>
+                <input type="range" id="lineGapSlider" class="slider" min="0" max="150" value="55" step="1">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 随机 -->
+        <div class="paper-card collapsed">
+          <button type="button" class="card-title" aria-expanded="false">
+            <span class="card-sign" aria-hidden="true"></span>
+            随机
+          </button>
+          <div class="card-body">
+            <div class="card-body-inner">
+              <div class="control-group">
+                <div class="label-row">
+                  <label class="control-label" for="randomSlider">随机幅度</label>
+                  <span id="randomValue" class="value-label">60%</span>
+                </div>
+                <input type="range" id="randomSlider" class="slider" min="0" max="100" value="60" step="1">
+              </div>
+
+              <div class="control-group toggle-group">
+                <label class="toggle-label">
+                  <input type="checkbox" id="toggleSize" checked>
+                  <span class="toggle-track"></span>
+                  字号随机
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. 输出 -->
+        <div class="paper-card collapsed">
+          <button type="button" class="card-title" aria-expanded="false">
+            <span class="card-sign" aria-hidden="true"></span>
+            输出
+          </button>
+          <div class="card-body">
+            <div class="card-body-inner">
+              <div class="control-row">
+                <div class="control-group half">
+                  <span class="control-label">尺寸</span>
+                  <div class="dropdown">
+                    <button type="button" class="dropdown-trigger" aria-haspopup="listbox" aria-expanded="false">
+                      <span class="dropdown-value">3:4 竖版</span>
+                      <span class="dropdown-chevron" aria-hidden="true"></span>
+                    </button>
+                    <div class="dropdown-menu" role="listbox" aria-label="尺寸" hidden></div>
+                    <select id="sizeSelect" class="native-select" aria-hidden="true" tabindex="-1">
+                      <option value="square">1:1 正方形</option>
+                      <option value="portrait" selected>3:4 竖版</option>
+                      <option value="wallpaper">9:19.5 手机壁纸</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="control-group half">
+                  <span class="control-label">背景</span>
+                  <div class="dropdown">
+                    <button type="button" class="dropdown-trigger" aria-haspopup="listbox" aria-expanded="false">
+                      <span class="dropdown-value">笔记本纸</span>
+                      <span class="dropdown-chevron" aria-hidden="true"></span>
+                    </button>
+                    <div class="dropdown-menu" role="listbox" aria-label="背景" hidden></div>
+                    <select id="bgSelect" class="native-select" aria-hidden="true" tabindex="-1">
+                      <option value="notebook" selected>笔记本纸</option>
+                      <option value="dotgrid">点线纸</option>
+                      <option value="white">白纸</option>
+                      <option value="kraft">牛皮纸</option>
+                      <option value="transparent">透明 PNG</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 下载按钮：独立于输出卡片，始终可见 -->
+        <div class="action-group">
+          <div class="action-row">
+            <button id="downloadBtn" class="btn btn-primary">下载图片</button>
+          </div>
+
+          <div class="copy-row">
+            <button id="copyParamsBtn" class="btn-copy" type="button">
+              <svg class="copy-icon" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+                <rect x="5.5" y="5.5" width="8.5" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M10.5 3.5H4.5A1.5 1.5 0 0 0 3 5v6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <span id="copyLabel">复制参数</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <img class="footer-logo" src="assets/xiaohongshu-logo.png" alt="小红书" />
+    <span>贾斯伯还是吉努都可以</span>
+  </footer>
+
+  <!-- 手机端：大图预览，长按保存 -->
+  <div class="modal" id="saveModal" hidden>
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-label="保存图片">
+      <button type="button" class="modal-close" id="saveModalClose" aria-label="关闭">×</button>
+      <p class="modal-hint">长按图片保存到相册</p>
+      <img id="saveModalImg" alt="生成的拼贴图" />
+    </div>
+  </div>
+
+  <!-- 复制失败兜底：完整参数供长按复制 -->
+  <div class="modal" id="copyModal" hidden>
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-label="复制参数">
+      <button type="button" class="modal-close" id="copyModalClose" aria-label="关闭">×</button>
+      <p class="modal-hint">自动复制失败，请长按下方文本全选复制</p>
+      <textarea id="copyModalText" class="modal-text" readonly></textarea>
+    </div>
+  </div>
+
+  <!-- Full-res canvas for export (hidden) -->
+  <canvas id="exportCanvas" style="display:none;"></canvas>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
