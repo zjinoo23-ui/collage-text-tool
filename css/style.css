@@ -3,6 +3,12 @@
    颜色全部取自项目现有的褪色纸色板
    ============================================================ */
 
+/* ============================================================
+   Chrome 61 基线（Android 8.1 出厂 Chrome / WebView 61）
+   - Flex 间距：基线用子项单边 margin 实现，不依赖 flex gap（Chrome 84+）
+   - aspect-ratio：基线用比例盒 + 内容绝对定位，@supports 增强层保留原比例
+   ============================================================ */
+
 /* 触屏点击不出现系统灰色高亮，保留纸片质感 */
 button,
 label,
@@ -132,9 +138,17 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
   padding-bottom: 24px;
   text-align: center;
+}
+
+/* 子项间距：margin 基线（Chrome 61 无 flex gap） */
+.app-header > * {
+  margin-bottom: 8px;
+}
+
+.app-header > *:last-child {
+  margin-bottom: 0;
 }
 
 .app-title {
@@ -163,7 +177,14 @@ textarea {
 .app-main {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+}
+
+.app-main > * {
+  margin-bottom: 16px;
+}
+
+.app-main > *:last-child {
+  margin-bottom: 0;
 }
 
 /* 页脚：整页最下方居中署名 */
@@ -171,12 +192,19 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
   margin: 0 auto 24px;
   font-family: var(--font-ui);
   font-size: 12px;
   line-height: 1;
   color: rgba(0, 0, 0, 0.5);
+}
+
+.site-footer > * {
+  margin-right: 6px;
+}
+
+.site-footer > *:last-child {
+  margin-right: 0;
 }
 
 .footer-logo {
@@ -204,6 +232,8 @@ textarea {
 .preview-wrapper {
   width: 100%;
   aspect-ratio: 3 / 4;
+  /* Chrome 61 基线：比例盒的 padding-bottom，JS 切换画幅时同步覆盖 */
+  --preview-pad: 133.333333%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -217,10 +247,31 @@ textarea {
   display: block;
 }
 
+/* Chrome 61 基线：无 aspect-ratio，用比例盒（height:0 + padding-bottom）撑出外框，
+   画布改为绝对定位居中（margin:auto，不产生位移层），与上面的 flex 居中位置一致 */
+@supports not (aspect-ratio: 1 / 1) {
+  .preview-wrapper {
+    height: 0;
+    padding-bottom: var(--preview-pad);
+  }
+
+  #previewCanvas {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin: auto;
+  }
+}
+
 /* 字体加载失败等渲染错误提示 */
 .font-error {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -255,26 +306,38 @@ textarea {
 .controls-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+}
+
+.controls-section > * {
+  margin-bottom: 16px;
+}
+
+.controls-section > *:last-child {
+  margin-bottom: 0;
 }
 
 .paper-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
   padding: 16px;
   background: var(--card);
   /* 与图片展示区同一套“1px 纸边 + 4px 投影”的立体规范 */
   border: 1px solid var(--card-edge);
   border-radius: 12px;
   box-shadow: 0 0 4px var(--shadow);
-  transition: gap 0.2s ease;
+}
+
+.paper-card > * {
+  margin-bottom: 12px;
+}
+
+.paper-card > *:last-child {
+  margin-bottom: 0;
 }
 
 .card-title {
   display: flex;
   align-items: center;
-  gap: 8px;
   width: 100%;
   padding: 0;
   border: none;
@@ -286,6 +349,8 @@ textarea {
   color: var(--ink);
   text-align: left;
   cursor: pointer;
+  /* 折叠时标题与内容之间的间距（margin 基线）由 12px 收到 0 */
+  transition: margin-bottom 0.2s ease;
 }
 
 .card-title:focus-visible {
@@ -300,6 +365,8 @@ textarea {
   flex-shrink: 0;
   width: 12px;
   height: 12px;
+  /* 标题文字是匿名 flex item，无法加 margin，间距加在标记上 */
+  margin-right: 8px;
 }
 
 .card-sign::before,
@@ -341,10 +408,17 @@ textarea {
 .card-body-inner {
   display: flex;
   flex-direction: column;
-  gap: 12px;
   min-height: 0;
   overflow: hidden;
   transition: opacity 0.2s ease, visibility 0s;
+}
+
+.card-body-inner > * {
+  margin-bottom: 12px;
+}
+
+.card-body-inner > *:last-child {
+  margin-bottom: 0;
 }
 
 .paper-card.collapsed .card-body {
@@ -358,8 +432,8 @@ textarea {
   transition: opacity 0.2s ease, visibility 0s 0.2s;
 }
 
-.paper-card.collapsed {
-  gap: 0;
+.paper-card.collapsed > * {
+  margin-bottom: 0;
 }
 
 /* 展开完成后放开裁剪：内部控件（下拉触发框、按钮）的投影才不会被切掉。
@@ -371,7 +445,14 @@ textarea {
 .control-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+}
+
+.control-group > * {
+  margin-bottom: 8px;
+}
+
+.control-group > *:last-child {
+  margin-bottom: 0;
 }
 
 .control-label {
@@ -384,7 +465,14 @@ textarea {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+}
+
+.label-row > * {
+  margin-right: 8px;
+}
+
+.label-row > *:last-child {
+  margin-right: 0;
 }
 
 .value-label {
@@ -396,7 +484,14 @@ textarea {
 
 .control-row {
   display: flex;
-  gap: 12px;
+}
+
+.control-row > * {
+  margin-right: 12px;
+}
+
+.control-row > *:last-child {
+  margin-right: 0;
 }
 
 .control-group.half {
@@ -458,7 +553,6 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
   width: 100%;
   padding: 10px 12px;
   background-color: var(--panel);
@@ -472,6 +566,14 @@ textarea {
   box-shadow: 0 2px 8px var(--shadow);
   cursor: pointer;
   transition: background-color 0.16s, box-shadow 0.16s, border-color 0.16s;
+}
+
+.dropdown-trigger > * {
+  margin-right: 8px;
+}
+
+.dropdown-trigger > *:last-child {
+  margin-right: 0;
 }
 
 .dropdown-trigger:hover {
@@ -556,7 +658,6 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
   width: 100%;
   min-height: 36px;
   padding: 8px 12px 8px 24px;
@@ -599,7 +700,14 @@ textarea {
 /* 种子号一行 */
 .seed-row {
   display: flex;
-  gap: 8px;
+}
+
+.seed-row > * {
+  margin-right: 8px;
+}
+
+.seed-row > *:last-child {
+  margin-right: 0;
 }
 
 .seed-input {
@@ -611,11 +719,19 @@ textarea {
 .segmented-control {
   position: relative;
   display: flex;
-  gap: 4px;
   padding: 4px;
   background: #DCD1B6;
   border-radius: 8px;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+
+/* 滑动色块是绝对定位，不占 flex 间距；间距加在按钮上 */
+.segmented-control > .seg-btn {
+  margin-right: 4px;
+}
+
+.segmented-control > .seg-btn:last-child {
+  margin-right: 0;
 }
 
 .seg-indicator {
@@ -736,7 +852,6 @@ textarea {
 .toggle-label {
   display: flex;
   align-items: center;
-  gap: 10px;
   min-height: 32px;
   font-size: 13px;
   color: var(--ink);
@@ -756,6 +871,8 @@ textarea {
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.18);
   transition: background 0.18s, box-shadow 0.18s;
   flex-shrink: 0;
+  /* 开关文字是匿名 flex item，无法加 margin，间距加在开关上 */
+  margin-right: 10px;
 }
 
 .toggle-track::after {
@@ -789,7 +906,14 @@ textarea {
 /* ===== 按钮 ===== */
 .action-row {
   display: flex;
-  gap: 8px;
+}
+
+.action-row > * {
+  margin-right: 8px;
+}
+
+.action-row > *:last-child {
+  margin-right: 0;
 }
 
 /* 下载按钮下方的低调文字按钮 */
@@ -808,7 +932,6 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
   width: 100%;
   height: 30px;
   padding: 0;
@@ -819,6 +942,14 @@ textarea {
   color: #6B5D4F;
   cursor: pointer;
   transition: color 0.16s;
+}
+
+.btn-copy > * {
+  margin-right: 6px;
+}
+
+.btn-copy > *:last-child {
+  margin-right: 0;
 }
 
 .btn-copy:hover {
@@ -947,7 +1078,10 @@ textarea {
 /* ===== 弹窗：手机保存图 / 复制失败兜底 ===== */
 .modal {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 100;
   display: flex;
   align-items: center;
@@ -1039,8 +1173,17 @@ textarea {
 @media (min-width: 900px) {
   .app-main {
     flex-direction: row;
-    gap: 24px;
     align-items: flex-start;
+  }
+
+  /* 横向排布时间距改到右边 */
+  .app-main > * {
+    margin-right: 24px;
+    margin-bottom: 0;
+  }
+
+  .app-main > *:last-child {
+    margin-right: 0;
   }
 
   .preview-section {

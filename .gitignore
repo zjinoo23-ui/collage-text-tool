@@ -30,6 +30,11 @@ collage-*-single.html
 build-single.mjs
 .trae-html-share-packages/
 
+# 小工具构建产物（本地打包，不进仓库）
+dist/
+build-minitool.mjs
+collage-text-minitool.zip
+
 # 构建依赖
 node_modules/
 

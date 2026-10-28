@@ -3,7 +3,8 @@
 import { waitForFonts, areFontsReady } from './fonts.js';
 import { segmentText } from './segmenter.js';
 import { renderToCanvas } from './renderer.js';
-import { downloadCanvas, cropToContent } from './export.js';
+import { cropToContent } from './export.js';
+import { isMiniTool, saveImage, copyText } from './platform.js';
 import { SIZES } from './layout.js';
 import { preloadAssets } from './assets.js';
 import { preloadBackgrounds } from './backgrounds.js';
@@ -43,6 +44,8 @@ const copyModalText = document.getElementById('copyModalText');
 const copyModalClose = document.getElementById('copyModalClose');
 const appVersion = document.getElementById('appVersion');
 if (appVersion) appVersion.textContent = VERSION;
+// 小工具容器里保存走系统相册，按钮文案对齐实际行为
+if (isMiniTool()) downloadBtn.textContent = '保存到相册';
 
 // State
 const state = {
@@ -258,6 +261,8 @@ function render() {
   const previewWrapper = previewCanvas.parentElement;
   // 外框比例跟随所选尺寸，纸边留白保持 3:4 时的一致观感
   previewWrapper.style.aspectRatio = `${size.w} / ${size.h}`;
+  // Chrome 61 基线：aspect-ratio 不生效时改用比例盒 padding-bottom
+  previewWrapper.style.setProperty('--preview-pad', `${(size.h / size.w) * 100}%`);
   let maxW = previewWrapper.clientWidth - 4;
   let maxH = previewWrapper.clientHeight - 4;
 
@@ -446,10 +451,20 @@ document.addEventListener('keydown', e => {
 });
 
 // Download
-downloadBtn.addEventListener('click', () => {
+downloadBtn.addEventListener('click', async () => {
   const transparent = state.bgType === 'transparent';
+  // 小工具容器：走平台 API 保存到系统相册
+  if (isMiniTool()) {
+    try {
+      await saveImage(exportCanvas, { transparent, seed: state.seed });
+    } catch (err) {
+      console.error(err);
+      window.alert('保存到相册失败，请重试');
+    }
+    return;
+  }
   if (!isTouchUI()) {
-    downloadCanvas(exportCanvas, state.seed, transparent);
+    saveImage(exportCanvas, { transparent, seed: state.seed });
     return;
   }
   // 手机端：大图预览 + 长按保存（透明 PNG 同样按实际内容边界裁剪）
@@ -486,31 +501,6 @@ function buildParamsText() {
     `尺寸：${sizeText}`,
     `背景：${bgText}`
   ].join('\n');
-}
-
-async function copyText(text) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (err) {
-      // 权限被拒时走下面的兜底
-    }
-  }
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.position = 'fixed';
-    ta.style.top = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand('copy');
-    ta.remove();
-    return ok;
-  } catch (err) {
-    return false;
-  }
 }
 
 let copyResetTimer = null;
