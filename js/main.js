@@ -9,7 +9,7 @@ import { preloadAssets } from './assets.js';
 import { preloadBackgrounds } from './backgrounds.js';
 
 // 页面版本号：后续升级只改这一处
-const VERSION = 'v0.5.0';
+const VERSION = 'v0.5.1';
 
 // DOM elements
 const textInput = document.getElementById('textInput');
