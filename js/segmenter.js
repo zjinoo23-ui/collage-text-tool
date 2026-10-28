@@ -23,7 +23,7 @@ function isNewline(ch) {
 /**
  * Segment text into collage units.
  * @param {string} text - Input text
- * @param {'char'|'mixed'|'word'} mode - Segmentation mode
+ * @param {'char'|'mixed'|'word'|'block'} mode - Segmentation mode
  * @returns {Array<{text: string, index: number}>} Array of units with original char index
  */
 export function segmentText(text, mode) {
@@ -113,6 +113,35 @@ export function segmentText(text, mode) {
         if (startIdx === null) startIdx = i;
         word += ch;
         i++;
+      }
+    }
+    flushWord();
+  } else if (mode === 'block') {
+    // 整片模式：空格 + 标点 都作分隔符，遇到就切纸
+    // 标点本身也要算作独立纸片
+    let word = '';
+    let startIdx = null;
+    function flushWord() {
+      if (word) {
+        push(word, startIdx);
+        word = '';
+        startIdx = null;
+      }
+    }
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (isNewline(ch)) {
+        flushWord();
+        units.push({ text: '\n', index: i, isBreak: true });
+      } else if (isSpace(ch)) {
+        flushWord();
+        units.push({ text: ' ', index: i, isSpace: true });
+      } else if (isPunct(ch)) {
+        flushWord();
+        push(ch, i);
+      } else {
+        if (startIdx === null) startIdx = i;
+        word += ch;
       }
     }
     flushWord();
