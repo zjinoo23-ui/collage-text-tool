@@ -464,7 +464,7 @@ downloadBtn.addEventListener('click', () => {
 });
 
 // 复制参数
-const SEGMENT_LABELS = { char: '逐字', mixed: '混合' };
+const SEGMENT_LABELS = { char: '逐字', mixed: '混合', block: '整片' };
 const ALIGN_LABELS = { left: '左', center: '居中', right: '右' };
 const VALIGN_LABELS = { top: '顶', middle: '居中', bottom: '底' };
 
