@@ -76,3 +76,21 @@ export async function copyText(text) {
     return false;
   }
 }
+
+/**
+ * 当前环境是否支持直接发到小红书。
+ * 浏览器实现恒为 false（无发布接口，按钮保持隐藏）。
+ * @returns {boolean}
+ */
+export function canPublishNote() {
+  return false;
+}
+
+/**
+ * 把画布发布到小红书。
+ * 浏览器实现不支持，直接抛错。
+ * @returns {Promise<void>}
+ */
+export async function publishNote() {
+  throw new Error('当前环境不支持发布');
+}

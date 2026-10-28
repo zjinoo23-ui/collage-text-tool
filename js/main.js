@@ -4,7 +4,7 @@ import { waitForFonts, areFontsReady } from './fonts.js';
 import { segmentText } from './segmenter.js';
 import { renderToCanvas } from './renderer.js';
 import { cropToContent } from './export.js';
-import { isMiniTool, saveImage, copyText } from './platform.js';
+import { isMiniTool, saveImage, copyText, canPublishNote, publishNote } from './platform.js';
 import { SIZES } from './layout.js';
 import { preloadAssets } from './assets.js';
 import { preloadBackgrounds } from './backgrounds.js';
@@ -31,6 +31,7 @@ const bgSelect = document.getElementById('bgSelect');
 const seedInput = document.getElementById('seedInput');
 const regenBtn = document.getElementById('regenBtn');
 const downloadBtn = document.getElementById('downloadBtn');
+const postNoteBtn = document.getElementById('postNoteBtn');
 const copyParamsBtn = document.getElementById('copyParamsBtn');
 const copyLabel = document.getElementById('copyLabel');
 const previewCanvas = document.getElementById('previewCanvas');
@@ -475,6 +476,34 @@ downloadBtn.addEventListener('click', async () => {
   } catch (err) {
     console.error(err);
     window.alert('导出图片失败，请重试');
+  }
+});
+
+// 发到小红书：仅在小工具容器内、且容器提供 postNote 接口时显示
+const POST_NOTE_LABEL = '发到小红书';
+if (canPublishNote()) postNoteBtn.hidden = false;
+
+let postNoteTimer = null;
+postNoteBtn.addEventListener('click', async () => {
+  const transparent = state.bgType === 'transparent';
+  postNoteBtn.disabled = true;
+  postNoteBtn.textContent = '准备中…';
+  try {
+    await publishNote(exportCanvas, {
+      transparent,
+      title: '拼贴文字',
+      content: buildParamsText()
+    });
+    postNoteBtn.textContent = '✓ 已打开发布页';
+  } catch (err) {
+    console.error('[export] postNote failed', err);
+    postNoteBtn.textContent = '发布失败，请重试';
+  } finally {
+    postNoteBtn.disabled = false;
+    if (postNoteTimer) clearTimeout(postNoteTimer);
+    postNoteTimer = setTimeout(() => {
+      postNoteBtn.textContent = POST_NOTE_LABEL;
+    }, 2000);
   }
 });
 

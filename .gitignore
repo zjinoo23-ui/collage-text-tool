@@ -43,3 +43,6 @@ node_modules/
 
 # 交付用整包压缩
 /collage-text-tool-latest.zip
+
+# 小工具整包产物（本地生成，不进仓库）
+collage-text-minitool*.zip

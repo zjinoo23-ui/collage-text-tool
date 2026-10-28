@@ -55,6 +55,55 @@ export async function saveImage(canvas, options) {
 }
 
 /**
+ * 当前环境是否支持直接发到小红书。
+ * 需要容器提供 postNote 接口。
+ * @returns {boolean}
+ */
+export function canPublishNote() {
+  const miniTool = getMiniTool();
+  return !!(miniTool && typeof miniTool.postNote === 'function');
+}
+
+/**
+ * 把画布发布到小红书：打开笔记发布页并携带图片与正文。
+ * 需由用户手势触发（按钮点击）。
+ * @param {HTMLCanvasElement} canvas
+ * @param {{transparent?: boolean, title?: string, content?: string}} options
+ * @returns {Promise<void>}
+ */
+export async function publishNote(canvas, options) {
+  const { transparent = false, title = '拼贴文字', content = '' } = options || {};
+  const miniTool = getMiniTool();
+  if (!miniTool || typeof miniTool.postNote !== 'function') {
+    throw new Error('当前环境不支持发布');
+  }
+
+  const mimeType = transparent ? 'image/png' : 'image/jpeg';
+  // 透明 PNG 按实际内容边界裁剪，不保留固定画幅的透明边
+  const source = transparent ? cropToContent(canvas) : canvas;
+  const dataUrl = source.toDataURL(mimeType, 0.92);
+
+  // mediaInfo 只接受 data URI 或本地路径；大图先落成临时文件
+  let url = dataUrl;
+  if (typeof miniTool.writeTempFile === 'function') {
+    try {
+      const res = await miniTool.writeTempFile({ data: dataUrl });
+      const filePath = res && (res.filePath || (res.data && res.data.filePath));
+      if (filePath) url = filePath;
+    } catch (err) {
+      console.warn('[platform] writeTempFile 失败，回退 data URI', err);
+    }
+  }
+
+  await miniTool.postNote({
+    title: String(title).slice(0, 20),
+    content: String(content).slice(0, 1000),
+    pageType: 'photo_publish',
+    mediaInfo: { image_resources: [{ url }] }
+  });
+}
+
+/**
  * 容器禁用剪贴板，恒返回 false，
  * 由调用方弹出可选文本弹窗，引导用户长按复制。
  * @param {string} text
